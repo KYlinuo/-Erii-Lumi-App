@@ -1,0 +1,49 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ---- Secrets (NEVER commit) ----
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.key
+*.mobileprovision
+secrets/
+credentials.json
+
+# ---- Database / runtime data ----
+backend/data/
+*.db
+*.sqlite
+*.sqlite3
+backend/*.log
+*.log
+
+# ---- iOS / Xcode ----
+frontend/build/
+frontend/DerivedData/
+frontend/*.xcworkspace/xcuserdata/
+frontend/*.xcodeproj/xcuserdata/
+frontend/*.xcodeproj/project.xcworkspace/
+*.ipa
+*.dSYM.zip
+*.xcarchive/
+xcuserdata/
+
+# ---- Node / misc ----
+node_modules/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
