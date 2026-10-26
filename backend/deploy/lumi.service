@@ -1,0 +1,40 @@
+# ============================================================
+# Project LUMI - systemd 服务单元
+#
+# 用法：
+#   cp lumi.service /etc/systemd/system/
+#   systemctl daemon-reload
+#   systemctl enable --now lumi
+#   journalctl -u lumi -f
+#
+# 前提：
+#   - 代码位于 /opt/ProjectLUMI
+#   - venv 位于 /opt/ProjectLUMI/.venv
+#   - /opt/ProjectLUMI/.env 已配置（含 LUMI_API_KEY、LUMI_ACCESS_TOKEN、LUMI_ENV=prod）
+# ============================================================
+
+[Unit]
+Description=Project LUMI backend (FastAPI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lumi
+Group=lumi
+WorkingDirectory=/opt/ProjectLUMI/backend
+EnvironmentFile=/opt/ProjectLUMI/.env
+ExecStart=/opt/ProjectLUMI/.venv/bin/python -m uvicorn app.main:app \
+    --host 127.0.0.1 --port 8000 --workers 2 --no-access-log
+Restart=on-failure
+RestartSec=5
+
+# 最小权限
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/ProjectLUMI/backend/data
+
+[Install]
+WantedBy=multi-user.target
