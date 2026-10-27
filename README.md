@@ -2,7 +2,7 @@
 
 # Project LUMI
 
-**会一直在你身边的 AI 少女 · v0.1**
+**会一直在你身边的 AI 少女 · v0.2**
 
 原生 iOS (Swift 6 / SwiftUI) + 自托管后端 (Python / FastAPI / SQLite / DeepSeek)
 
@@ -19,11 +19,29 @@ ProjectLUMI/
 │   ├── LUMI/           Swift 源码 + 资源
 │   ├── LUMITests/      XCTest 单元测试
 │   └── project.yml     Xcode 工程定义（Windows 可维护）
-├── docs/               PRD / 架构 / API / 变更日志 / 测试报告
-├── tests/              后端 pytest 测试
+├── windows-bridge/     Windows 桥接客户端（与 iPhone 共用同一 AI 角色核心）
+├── docs/               PRD / 架构 / API / 变更日志 / 测试报告 / 夜间交付报告
+├── tests/              后端 pytest 测试（144 项）
 ├── scripts/            环境自检 / 令牌生成 / 启动 / 冒烟测试 / 资源生成
 └── .github/workflows/  iOS 构建 + 后端测试 CI
 ```
+
+## v0.2 新增能力
+
+- **统一 AI 角色核心**：iPhone 与 Windows 共用同一角色 ID、会话、消息、记忆、虚构时间线
+- **数据库迁移**：版本化原地升级，老库不删数据
+- **多设备身份**：每设备独立令牌（服务端只存加盐 SHA-256），可单独吊销
+- **人格系统**：LUMI / 林穗 / 祁鹿 / 沈昼 / 绘梨衣，互不合并
+- **长期记忆**：六分类 + 来源 + 可信度，用户事实与角色虚构严格隔离
+- **虚构人生**：确定性生成（不消耗额度），全部标记为虚构内容
+- **主动联系**：时段 / 配额 / 免打扰 / 即时关闭（服务端排队 + 客户端拉取）
+- **iOS 新增页面**：人物主页、记忆页、虚构日记页
+
+入口文档：
+- 想接手继续开发 → `docs/NEXT_MORNING.md`（说人话版）
+- 想知道昨晚做了什么 → `docs/NIGHT_REPORT.md`
+- 想了解现有工程 → `docs/EXISTING_PROJECT_AUDIT.md`
+- Windows 桌宠整合 → `docs/ERII_INTEGRATION.md`
 
 ## 快速开始（后端）
 
