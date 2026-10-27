@@ -20,7 +20,7 @@
 | 版本 | **v0.2.0**（`backend/app/__init__.py`、`frontend/project.yml` 均已升版） |
 | 分支 | `night/v0.2` |
 | 基线 | `master` @ `eeee84f7e3a6a4aa6ad0756da2e1a73e21f20bb2` |
-| Git Commit ID | **`74cfa38e0afd77599db66dd8f801ba28f601641a`** |
+| Git Commit ID | **`74cfa38`（代码） / `7312fff`（文档）** |
 | 数据库 schema | `2026102702` |
 | 工作区 | 提交后干净（67 个变更文件已入库） |
 
@@ -113,8 +113,12 @@
 
 ## 7. Git Commit ID
 
-`74cfa38e0afd77599db66dd8f801ba28f601641a`
-（分支 `night/v0.2`，父提交 `eeee84f`，**未强推、未改写历史、未删除文件**）
+| 提交 | 哈希 | 内容 |
+|------|------|------|
+| 代码主体 | `74cfa38e0afd77599db66dd8f801ba28f601641a` | v0.2 后端 + iOS + 桥接 + 测试（67 个文件） |
+| 交付文档 | `7312fffcb9a60c67022ec3d3df53e28e9b1340b2` | 审计 / 任务队列 / 进度 / 集成方案 / 次日说明 / 本报告 / README |
+
+分支 `night/v0.2`，父提交 `eeee84f`，**未强推、未改写历史、未删除文件**。
 
 ## 8. 构建结果
 
