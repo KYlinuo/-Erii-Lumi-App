@@ -93,3 +93,89 @@
 
 - 后端：**54/54 单元测试通过**，真实服务端到端冒烟 4/4 通过，可作为 v0.1 基线。
 - iOS：源码与工程配置完备，**编译验证待 macOS/CI 执行**，这是当前唯一未闭环项。
+
+---
+
+# v0.2 测试报告（2026-10-28 · 夜间开发）
+
+> 全部结论来自**真实执行**。未执行的项目一律标注为「未验证」。
+
+## 1. 执行环境
+
+| 项 | 值 |
+|----|----|
+| 操作系统 | Windows 11（Git Bash / win32） |
+| Python | 3.13.14（项目 `.venv`） |
+| pytest | 9.1.1 |
+| 后端实测 | uvicorn 127.0.0.1 + SQLite |
+| Swift 工具链 | **本机无**（iOS 编译 / XCTest 未在本机执行） |
+
+## 2. 后端单元测试 — ✅ 144/144 通过
+
+```
+144 passed in 22.63s
+```
+
+| 测试文件 | 数量 | 覆盖内容 |
+|---------|-----|---------|
+| `test_auth.py` | 10 | 公开端点放行、缺/错 token 拒绝、Bearer 兼容、常量时间比较、生产无 token 拒绝启动 |
+| `test_chat.py` | 8 | 真实适配器调用、历史组装、双端落库、未配置 Key→503、5 类上游失败映射、失败仍保存用户消息 |
+| `test_conversations.py` | 8 | 历史按序恢复、跨会话持久化、标题生成与截断、级联删除、孤儿消息清理 |
+| `test_devices.py` | 8 | 注册返回一次性明文令牌、库内只存哈希、令牌可认证、吊销即失效、作用域收窄、改名、404 |
+| `test_health.py` | 5 | 健康检查、provider 状态、**密钥不泄露**、persona、根端点 |
+| `test_llm_gateway.py` | 16 | Mock Provider 确定性与脚本化、**不会悄悄顶替真实模型**、3 类可重试/3 类不可重试、退避递增、Token 记账落库、人格与记忆注入上下文、切人格不合并 |
+| `test_memory.py` | 16 | 抽取确定性、可关闭、用户事实跨人格共享、关系记忆按人格隔离、虚构人生不泄漏到用户事实、幂等不重复、来源与可信度、归档/删除/导出、接口往返 |
+| `test_migrations.py` | 4 | **v0.1 老库原地升级**（数据保全 + 游标回填 + 索引建立）、重复执行幂等、迁移后 ORM 可读写新字段 |
+| `test_personas.py` | 12 | 5 套人格齐备、唯一默认人格、**播种不覆盖既有设定**、人格不合并、未知 key 回退、提示词含虚构声明、虚构人生按人格隔离、待机台词 |
+| `test_proactive.py` | 12 | 默认关闭、免打扰时段、非允许时段、允许时段、**每日配额**、离线排队、投递标记、一键取消、接口不声称 APNs |
+| `test_provider_adapter.py` | 15 | OpenAI 兼容协议、URL 拼接、6 组 HTTP 状态映射、超时、连接失败、错误信息不泄露 Key |
+| `test_ratelimit.py` | 8 | chat/default 独立配额、429 与 Retry-After、窗口滑动、0 限流禁用 |
+| `test_sync.py` | 9 | **两台设备（iPhone + Windows）共享会话**、增量只返回新增、`conv_seq` 单调、幂等重发不重复、不同 request_id 正常分开、游标读写、tombstone 同步、UTC 时间、人格一致 |
+| `test_world.py` | 13 | 生成事件、同一天幂等、确定性、时间线排序与过滤、`since` 生效、非法 kind 拒绝、日记接口标注虚构、日期参数与 422 |
+
+测试策略：单元测试注入桩适配器，**永不调用真实模型 API**（不产生费用）；
+真实网络协议由 `httpx.MockTransport` 模拟。
+
+## 3. 端到端验证（真实运行的后端）— ✅ 通过
+
+- **uvicorn 真实启动**：`LUMI v0.2.0 starting` → `bootstrap done:
+  {characters_created: 5, fictional_memories: 10, world_events: 20}` →
+  `Uvicorn running on http://127.0.0.1:8013`。
+- **Windows 桥接客户端实机跑通**：`status` → `register` → `characters` →
+  `send` → `memory` → `diary` 全部成功，证实 Windows 与 iPhone 共用同一角色、
+  会话、消息、记忆与虚构时间线。
+- **`/api/v1/health` 实测返回**：
+  `status=ok, database=ok, schema_version=2026102702, is_mock=true,
+  character_count=5`。
+
+## 4. 本次新增测试发现的真实缺陷（均已修复）
+
+| # | 缺陷 | 修复 |
+|---|------|------|
+| 1 | 幂等重发在「首次请求上游失败」时触发 `UNIQUE(request_id)`，请求直接 500 | 复用已落库的用户消息重试；`request_id` 属于其它会话时返回 409 |
+| 2 | SQLite 丢 tzinfo，`created_at` 序列化后没有 `+00:00` | 新增 `UTCDateTime` 类型装饰器，强制 UTC 存取 |
+| 3 | 真实启动报 `no such table: users`（lifespan 只播种未建表） | lifespan 先 `create_all()`（含迁移）再 `bootstrap()` |
+| 4 | `bootstrap` 用 `created_at == updated_at` 判新建，恒为 0 | 改为显式查重统计 |
+| 5 | Swift `ChatMessage` 值类型原地修改丢失 | 改为按下标写回数组 |
+| 6 | 虚构世界记忆被误标为「推测」 | 拆分为 `isInferred`（推断）/ `isSimulated`（角色设定） |
+| 7 | 虚构日记出现重复句子 | 当天严格幂等 + 7 天窗口内避免复述 |
+
+## 5. iOS 客户端 — ⚠️ 源码完成，编译未在本机验证
+
+与 v0.1 相同：**Windows 上没有 Swift / iOS SDK**，本报告**没有**执行过
+`xcodebuild`，因此不声称「iOS 构建已通过」。已交付：
+
+- 新增 3 个页面（人物 / 记忆 / 虚构日记）+ 设计规范 + 3 个 ViewModel +
+  传输模型 + 15 个 API 方法；
+- 新增 `LUMITests/PersonaDecodingTests.swift`（11 项解码测试，含 v0.1 后端兼容）；
+- `project.yml` 版本号升至 0.2.0，两条 workflow 增加 `night/**` 触发。
+
+验证方式：推送到 GitHub 触发 Actions，或任意 macOS 上
+`brew install xcodegen && cd frontend && xcodegen generate && xcodebuild test`。
+
+## 6. 未验证项（如实列出）
+
+1. iOS 编译与 XCTest；
+2. GitHub Actions 实际运行（仓库尚未推送到远端）；
+3. 真实模型端到端调用（本机无 `LUMI_API_KEY`，本次**未产生任何 API 费用**）；
+4. 真机安装与 APNs（免费自签不支持远程推送）。

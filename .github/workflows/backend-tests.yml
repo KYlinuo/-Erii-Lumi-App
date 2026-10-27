@@ -3,7 +3,7 @@ name: Backend Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, "night/**"]
     paths: ["backend/**", "tests/**", "pytest.ini", ".github/workflows/backend-tests.yml"]
   pull_request:
     paths: ["backend/**", "tests/**", "pytest.ini"]

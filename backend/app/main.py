@@ -11,10 +11,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app import __version__
+from app.bootstrap import bootstrap
 from app.config import get_settings
-from app.database import create_all
+from app.database import create_all, get_session_factory
+from app.errors import LUMIError
 from app.llm import ProviderError
-from app.routers import chat, conversations, health
+from app.routers import (
+    characters,
+    chat,
+    conversations,
+    devices,
+    health,
+    memory as memory_router,
+    proactive as proactive_router,
+    sync,
+    world as world_router,
+)
 from app.security import build_auth_state
 
 logging.basicConfig(
@@ -33,7 +45,13 @@ async def lifespan(app: FastAPI):  # noqa: ANN201
         logger.error("%s", exc)
         raise
 
+    # 1) 建表 + 原地迁移（绝不删库） 2) 播种内置人格与虚构生活
     create_all()
+    factory = get_session_factory()
+    with factory() as db:
+        stats = bootstrap(db)
+    logger.info("bootstrap: %s", stats)
+
     logger.info("LUMI v%s starting", __version__)
     logger.info("env=%s  db=%s", settings.env, settings.resolved_db_path)
     logger.info("provider=%s model=%s configured=%s",
@@ -69,6 +87,13 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(chat.router)
     app.include_router(conversations.router)
+    # v0.2
+    app.include_router(devices.router)
+    app.include_router(characters.router)
+    app.include_router(memory_router.router)
+    app.include_router(world_router.router)
+    app.include_router(sync.router)
+    app.include_router(proactive_router.router)
 
     @app.get("/", tags=["system"])
     def root() -> dict:
@@ -81,6 +106,15 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(ProviderError)
     async def _provider_error_handler(request: Request, exc: ProviderError):  # noqa: ANN001, ARG001
+        http_status, problem = exc.to_problem()
+        return JSONResponse(
+            status_code=http_status,
+            content={"error": problem},
+            headers={"X-LUMI-Error-Code": problem["code"]},
+        )
+
+    @app.exception_handler(LUMIError)
+    async def _lum_error_handler(request: Request, exc: LUMIError):  # noqa: ANN001, ARG001
         http_status, problem = exc.to_problem()
         return JSONResponse(
             status_code=http_status,

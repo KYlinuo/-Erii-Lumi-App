@@ -2,6 +2,67 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本遵循语义化版本。
 
+## [0.2.0] - 2026-10-28（夜间开发）
+
+### Added — 后端
+
+- **版本化数据库迁移** `backend/app/migrations.py`：老库原地升级，记录在 `schema_migrations`，
+  每个步骤幂等；**绝不允许通过删库解决结构问题**（4 项迁移测试覆盖，含 v0.1 老库数据保全）
+- 数据模型扩到 10 张表：`users` `devices` `device_cursors` `characters` `conversations`
+  `messages` `memory_records` `world_events` `media_assets` `proactive_messages`
+- **身份与设备**：设备注册、每设备独立令牌（服务端只存加盐 SHA-256）、作用域、吊销
+- **模型网关**：退避重试（只对超时/断连/限流重试）、Token 消耗记账、
+  Mock Provider（`model=mock-provider-v1`，可在 `/health.is_mock` 与消息的 `model` 字段追查）
+- **人格系统** `personas.py`：LUMI / 林穗 / 祁鹿 / 沈昼 / 绘梨衣，可扩展、互不合并；
+  播种只补空字段，**不会覆盖既有设定**
+- **长期记忆** `memory.py`：六分类 + 来源 + 可信度；`subject` 三级隔离
+  （用户事实跨人格共享 / 关系记忆按人格隔离 / 角色虚构人生独立）
+- **虚构人生** `world.py`：日记 / 爱好 / 阅读进度 / 关系 / 目标时间线，
+  确定性生成（不消耗任何额度），同一天幂等，全部标记 `simulated=true`
+- **主动联系** `proactive.py`：允许时段、每日上限、最小间隔、夜间免打扰、即时关闭；
+  采用「服务端排队 + 客户端拉取」，**未实现也不声称实现了 APNs**
+- **跨设备同步**：`conv_seq` 单调游标、`request_id` 幂等去重、软删除 tombstone、
+  设备游标；新增 `/sync`、`/sync/conversation/{id}`、`/sync/cursor`
+- 新增路由：`/devices` `/characters` `/memory` `/world` `/sync` `/proactive`
+- Windows 桥接客户端 `windows-bridge/lumi_bridge.py`（纯标准库，实机跑通）
+
+### Added — iOS 客户端
+
+- 新增**人物主页** `ProfileView`、**记忆页** `MemoryView`、**虚构日记页** `DiaryView`
+- `RootView` 改为 TabView：聊天 / 人物 / 记忆 / 日记 / 设置
+- 统一设计规范 `LUMIStyle.swift`（柔和光影 + 玻璃质感 + 深色）
+- `ChatViewModel`：幂等重发（复用 `request_id`）、增量同步、主动消息补拉
+- 传输模型全部向后兼容 v0.1 后端（`decodeIfPresent` + 显式成员构造器）
+
+### Fixed（测试发现的真实缺陷）
+
+1. 幂等重发在「首次请求上游失败」时触发 `UNIQUE(request_id)` 崩溃 → 复用已落库消息重试，跨会话返回 409
+2. SQLite 丢失 tzinfo 导致 `created_at` 没有 `+00:00` → 新增 `UTCDateTime` 类型装饰器
+3. 真实启动报 `no such table: users`（lifespan 只播种未建表）→ lifespan 先 `create_all()` 再 `bootstrap()`
+4. `bootstrap` 用 `created_at == updated_at` 判新建，恒为 0 → 改为显式查重
+5. Swift `ChatMessage` 是值类型，原地修改丢失 → 改为按下标写回数组
+6. 虚构世界记忆被误标为「推测」→ 拆分为 `isInferred` / `isSimulated`
+7. 虚构日记出现重复句子 → 当天严格幂等 + 7 天窗口内避免复述
+
+### Changed
+
+- `security.py`：`verify_token` 返回 `Caller`（身份 + 作用域），支持主令牌与设备令牌
+- `models.py`：消息新增 `request_id` / `conv_seq` / `client_ts` / `media_id` / tokens / `deleted_at`
+- `services.py`：编排顺序 = 幂等 → 人格 → 落库用户消息(commit) → 记忆吸收 → 上下文 → 带重试调用 → 落库回复
+
+### Security
+
+- 设备令牌服务端只存 `SHA256(token + salt)`，注册时明文只返回这一次
+- 模型 API Key 仍只在服务端；客户端零密钥
+- 新增 403/409 错误码：权限不足与幂等冲突都有明确语义
+
+### 已知限制
+
+- iOS 编译 / IPA **未在本机验证**（Windows 无 Swift/iOS SDK）
+- 未做过真实模型调用（无 API Key），本次未产生任何 API 费用
+- 主动联系默认关闭
+- 语音 / ASR / TTS / 图片消息尚未实现（数据表与字段已预留）
+
 ## [0.1.0] - 2026-10-26
 
 ### Added

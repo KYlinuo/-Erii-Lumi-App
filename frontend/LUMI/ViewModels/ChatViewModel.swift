@@ -6,12 +6,17 @@ final class ChatViewModel: ObservableObject {
     @Published private(set) var messages: [ChatMessage] = []
     @Published private(set) var isSending = false
     @Published private(set) var isRestoring = false
+    @Published private(set) var isSyncing = false
     @Published var lastError: LUMIError?
     @Published var conversationID: String? {
         didSet { UserDefaults.standard.set(conversationID, forKey: Self.conversationKey) }
     }
+    /// 当前人格 key（由 AppSession 统一维护）
+    @Published var characterKey: String? = "lumi"
 
     private static let conversationKey = "lumi.conversation.id"
+    private static let cursorKey = "lumi.sync.cursor"
+    private static let proactiveSeenKey = "lumi.proactive.seen"
 
     private let api: LUMIAPIClient
     private let store: MessageStore
@@ -38,7 +43,7 @@ final class ChatViewModel: ObservableObject {
             lastError = .decodingFailure(String(describing: error))
         }
 
-        // 本地为空但服务端可能已有记录（换机等场景）
+        // 本地为空但服务端可能已有记录（换机、Windows 端先聊过等场景）
         if messages.isEmpty, let conversationID {
             do {
                 let remote = try await api.messages(conversationID: conversationID)
@@ -71,7 +76,12 @@ final class ChatViewModel: ObservableObject {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isSending else { return }
 
-        var userMessage = ChatMessage(role: .user, content: trimmed, status: .sending)
+        var userMessage = ChatMessage(
+            role: .user,
+            content: trimmed,
+            status: .sending,
+            requestID: ChatMessage.makeRequestID()
+        )
         messages.append(userMessage)
         isSending = true
         lastError = nil
@@ -83,11 +93,12 @@ final class ChatViewModel: ObservableObject {
         }
     }
 
-    /// 对失败的消息点「重试」。
+    /// 对失败的消息点「重试」——沿用同一个幂等 ID，服务端不会重复生成回复。
     func retry(messageID: UUID) {
         guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
         guard messages[index].status == .failed else { return }
         let text = messages[index].content
+        let requestID = messages[index].requestID ?? ChatMessage.makeRequestID()
         messages[index].status = .sending
         messages[index].errorMessage = nil
         isSending = true
@@ -95,25 +106,55 @@ final class ChatViewModel: ObservableObject {
 
         Task { [weak self] in
             guard let self else { return }
-            await self.deliver(messageID: messageID, text: text)
+            await self.deliver(messageID: messageID, text: text, requestID: requestID)
         }
     }
 
-    private func deliver(messageID: UUID, text: String) async {
+    private func deliver(messageID: UUID, text: String, requestID: String? = nil) async {
         defer { isSending = false }
 
+        let resolvedRequestID = requestID
+            ?? messages.first(where: { $0.id == messageID })?.requestID
+            ?? ChatMessage.makeRequestID()
+
         do {
-            let response = try await api.sendMessage(text: text, conversationID: conversationID)
+            let response = try await api.sendMessage(
+                text: text,
+                conversationID: conversationID,
+                requestID: resolvedRequestID,
+                characterKey: characterKey
+            )
             conversationID = response.conversationId
 
             if let index = messages.firstIndex(where: { $0.id == messageID }) {
                 messages[index].status = .sent
+                messages[index].requestID = resolvedRequestID
+                messages[index].convSeq = response.convSeq
+                messages[index].serverID = response.userMessageId
             }
+
+            // 幂等重放：服务端没有再调模型，直接复用上次的助手消息。
+            // 注意 ChatMessage 是值类型，必须按下标改回数组，否则修改会丢失。
+            if response.idempotentReplay,
+               let index = messages.firstIndex(where: { $0.serverID == response.assistantMessageId }) {
+                messages[index].errorMessage = nil
+                messages[index].status = .sent
+                try await persist()
+                return
+            } else if response.idempotentReplay,
+                      let index = messages.firstIndex(where: { $0.role == .assistant && $0.content == response.reply }) {
+                // 本地没有服务端 ID（老数据）时，按内容兜底去重
+                messages[index].status = .sent
+                try await persist()
+                return
+            }
+
             let reply = ChatMessage(
                 role: .assistant,
                 content: response.reply,
                 model: response.model,
-                serverID: response.assistantMessageId
+                serverID: response.assistantMessageId,
+                convSeq: response.convSeq
             )
             messages.append(reply)
             try await persist()
@@ -135,7 +176,87 @@ final class ChatViewModel: ObservableObject {
         messages[index].errorMessage = error.userMessage
     }
 
+    // MARK: - 跨设备同步
+
+    /// 增量拉取：只拿 `conv_seq > 已知游标` 的消息，并按游标去重。
+    func syncFromServer() async throws {
+        guard let conversationID else { return }
+        isSyncing = true
+        defer { isSyncing = false }
+
+        let known = Self.loadCursor()[conversationID] ?? 0
+        let remote = try await api.syncConversation(conversationID: conversationID, after: known)
+        guard !remote.isEmpty else { return }
+
+        let knownIDs = Set(messages.compactMap(\.serverID))
+        var added: [ChatMessage] = []
+        var maxSeq = known
+
+        for item in remote {
+            if let seq = item.convSeq { maxSeq = max(maxSeq, seq) }
+            if item.isDeleted {
+                messages.removeAll { $0.serverID == item.id }
+                continue
+            }
+            guard !knownIDs.contains(item.id) else { continue }
+            added.append(item.toChatMessage())
+        }
+
+        if !added.isEmpty {
+            messages.append(contentsOf: added)
+            messages.sort { lhs, rhs in
+                if lhs.createdAt == rhs.createdAt {
+                    return (lhs.convSeq ?? 0) < (rhs.convSeq ?? 0)
+                }
+                return lhs.createdAt < rhs.createdAt
+            }
+        }
+        Self.saveCursor(conversationID, seq: maxSeq)
+        try await persist()
+    }
+
+    /// 拉取服务端排好队的主动消息（App 未打开期间产生的）。
+    ///
+    /// 诚实说明：这不是 APNs 远程推送，App 必须自己联网来取。
+    func pullProactiveMessages() async {
+        do {
+            let pending = try await api.proactivePending(characterKey: characterKey)
+            guard !pending.isEmpty else { return }
+            var seen = Set(UserDefaults.standard.array(forKey: Self.proactiveSeenKey) as? [String] ?? [])
+
+            var appended = false
+            for item in pending where !seen.contains(item.id) {
+                messages.append(
+                    ChatMessage(
+                        role: .assistant,
+                        content: item.content,
+                        model: "proactive:\(item.reason)"
+                    )
+                )
+                seen.insert(item.id)
+                appended = true
+            }
+            if appended {
+                UserDefaults.standard.set(Array(seen), forKey: Self.proactiveSeenKey)
+                try await persist()
+            }
+            _ = try? await api.markProactiveDelivered(ids: Array(seen))
+        } catch {
+            // 主动消息拉取失败不影响主流程
+        }
+    }
+
     // MARK: - 本地数据
+
+    private static func loadCursor() -> [String: Int] {
+        (UserDefaults.standard.dictionary(forKey: Self.cursorKey) as? [String: Int]) ?? [:]
+    }
+
+    private static func saveCursor(_ conversationID: String, seq: Int) {
+        var map = loadCursor()
+        map[conversationID] = max(map[conversationID] ?? 0, seq)
+        UserDefaults.standard.set(map, forKey: Self.cursorKey)
+    }
 
     private func persist() async throws {
         try await store.save(messages)
@@ -144,15 +265,8 @@ final class ChatViewModel: ObservableObject {
     func clearHistory() async {
         messages = []
         conversationID = nil
+        UserDefaults.standard.removeObject(forKey: Self.cursorKey)
         try? await store.clear()
         await insertGreeting()
-    }
-
-    /// 从服务端重新拉取当前会话（设置页「同步历史」用）。
-    func syncFromServer() async throws {
-        guard let conversationID else { return }
-        let remote = try await api.messages(conversationID: conversationID)
-        messages = remote.map { $0.toChatMessage() }
-        try await persist()
     }
 }

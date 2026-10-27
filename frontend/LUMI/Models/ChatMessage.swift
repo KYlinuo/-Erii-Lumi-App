@@ -26,6 +26,10 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
     var serverID: String?
     /// 失败原因（用户可读）
     var errorMessage: String?
+    /// 服务端会话内单调序号（增量同步游标）
+    var convSeq: Int?
+    /// 客户端生成的幂等 ID：断线重发同一条不会产生第二条
+    var requestID: String?
 
     init(
         id: UUID = UUID(),
@@ -35,7 +39,9 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
         createdAt: Date = Date(),
         model: String? = nil,
         serverID: String? = nil,
-        errorMessage: String? = nil
+        errorMessage: String? = nil,
+        convSeq: Int? = nil,
+        requestID: String? = nil
     ) {
         self.id = id
         self.role = role
@@ -45,9 +51,16 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
         self.model = model
         self.serverID = serverID
         self.errorMessage = errorMessage
+        self.convSeq = convSeq
+        self.requestID = requestID
     }
 
     var isFromUser: Bool { role == .user }
+
+    /// 生成一个幂等请求 ID（同一条消息重试时保持不变）。
+    static func makeRequestID() -> String {
+        "ios-\(UUID().uuidString.lowercased())"
+    }
 }
 
 /// 服务端返回的历史消息（GET /conversations/{id}/messages）。

@@ -1,13 +1,18 @@
-"""SQLAlchemy 引擎 / 会话管理（SQLite）。"""
+"""SQLAlchemy 引擎 / 会话管理（SQLite，保留迁移到 PostgreSQL 的能力）。"""
 
 from __future__ import annotations
 
-from sqlalchemy import create_engine, event
+import logging
+from contextlib import contextmanager
+
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.config import get_settings
+
+logger = logging.getLogger("lumi.database")
 
 
 class Base(DeclarativeBase):
@@ -69,10 +74,40 @@ def get_session_factory() -> sessionmaker[Session]:
     return _session_factory
 
 
-def create_all() -> None:
-    import app.models  # noqa: F401  保证模型已注册
+def _run_migrations(engine: Engine) -> list[str]:
+    """先建全量表（新库），再执行增量迁移（老库），返回本次应用的迁移版本。"""
+    from app import migrations  # 局部导入：避免模型 ↔ 迁移循环依赖
+    import app.models  # noqa: F401  保证模型已注册到 Base.metadata
 
-    Base.metadata.create_all(bind=get_engine())
+    Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        return migrations.run_migrations(conn)
+
+
+def create_all() -> None:
+    """幂等：新库建表 + 老库迁移。绝不删库。"""
+    engine = get_engine()
+    applied = _run_migrations(engine)
+    if applied:
+        logger.info("已应用数据库迁移：%s", ", ".join(applied))
+    else:
+        logger.info("数据库结构已是最新，无需迁移")
+
+
+def schema_version() -> str:
+    """当前 schema 版本号，用于 /health 展示。"""
+    with get_engine().begin() as conn:
+        from app import migrations
+
+        version = migrations.current_version(conn)
+    return version or "unknown"
+
+
+def init_db(db_url: str | None = None, force: bool = False) -> Engine:
+    """完整初始化（引擎 + 迁移）。lifespan 与测试共用。"""
+    engine = init_engine(db_url=db_url, force=force)
+    _run_migrations(engine)
+    return engine
 
 
 def get_db():
@@ -83,3 +118,29 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+@contextmanager
+def session_scope() -> Session:
+    """脚本/后台任务使用的短生命周期会话，自动 commit/rollback。"""
+    factory = get_session_factory()
+    db = factory()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+def ping_database() -> bool:
+    """/health 用的轻量探活。"""
+    try:
+        with get_engine().connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return True
+    except Exception:  # noqa: BLE001
+        logger.exception("database ping failed")
+        return False

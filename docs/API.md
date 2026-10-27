@@ -159,3 +159,96 @@ AI 少女的名称与形象信息。
 | `default` | conversations 系列 | 30 次/分钟/IP |
 
 通过 `LUMI_CHAT_RATE_LIMIT_PER_MINUTE` / `LUMI_RATE_LIMIT_PER_MINUTE` 调整。
+
+---
+
+# v0.2 新增接口（2026-10-28）
+
+Base URL 不变：`http(s)://<server>/api/v1`。以下接口全部需要凭据
+（主令牌或设备令牌），除 `/health`、`/persona`、`/time`。
+
+## 设备
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/devices` | 注册设备，**一次性返回明文令牌**（`token`），需立刻存 Keychain |
+| GET | `/devices` | 设备列表 |
+| PATCH | `/devices/{id}` | 改名 |
+| PUT | `/devices/{id}/scopes` | 设置作用域（`chat`/`sync`/`memory`/`world`/`admin`） |
+| DELETE | `/devices/{id}` | 吊销，令牌立即失效 |
+| GET | `/devices/me` | 当前令牌的身份与权限自检 |
+
+服务端只存 `SHA256(token + LUMI_DEVICE_TOKEN_SECRET)`，库泄露也无法还原令牌。
+
+## 人格
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/characters` | 人格列表（含 `source`，`reconstructed` 表示设定待补充） |
+| GET | `/characters/{key}` | 人格详情（含 `system_prompt`） |
+| GET | `/characters/{key}/idle-lines` | 待机台词，返回体带 `fictional: true` |
+| PATCH | `/conversations/{id}/character?character_key=` | 切换会话人格 |
+
+## 长期记忆
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/memory?character_key=&scope=&limit=` | 当前人格可见范围内的记忆 |
+| GET | `/memory/summary` | 按类型统计 |
+| GET | `/memory/export` | 导出（含来源与可信度） |
+| POST | `/memory` | 新增（`{scope, content, character_id?, source_type?, salience?}`） |
+| PATCH | `/memory/{id}` | 修改内容 / 可信度 / 状态 |
+| POST | `/memory/{id}/archive` | 归档 |
+| DELETE | `/memory/{id}` | 删除 |
+
+`subject`=`user` 的记忆跨人格共享；`relationship` / `character` 按 `character_id` 隔离。
+
+## 虚构人生
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/world/{key}/timeline?days=&kind=&limit=` | 时间线 |
+| GET | `/world/{key}/diary` | 日记（带 `notice` 声明为虚构） |
+| POST | `/world/{key}/simulate?max_events=&date=` | 生成某天的虚构生活（幂等） |
+| GET | `/world/{key}/state` | 概览 |
+
+所有事件 `simulated=true`：这是角色设定里的故事，**不是**用户真实经历。
+
+## 跨设备同步
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/sync` | `{since:{conversation_id:conv_seq}, limit}` → 全会话增量 |
+| GET | `/sync/conversation/{id}?after=&limit=` | 单会话增量 |
+| PUT | `/sync/cursor` | 记录设备读到的位置 |
+| GET | `/sync/cursor/{id}` | 读取设备游标 |
+| DELETE | `/sync/messages/{id}` | 软删除（tombstone 会同步给另一端） |
+
+消息在会话内有单调递增的 `conv_seq`；`request_id` 全局唯一用于幂等去重。
+
+## 主动联系
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/proactive` | 待投递的主动消息 |
+| POST | `/proactive/delivered` | 确认投递 `{ids:[...]}` |
+| POST | `/proactive/plan` | 按时段/配额判断是否排一条 |
+| POST | `/proactive/cancel` | 即时关闭：撤销所有未投递 |
+| GET | `/proactive/status` | 策略与当前是否允许发送 |
+
+`apns_remote_push=false`：采用**服务端排队 + 客户端拉取**，
+未实现也不声称实现了 APNs 远程推送。
+
+## 新增错误码
+
+| code | HTTP | 含义 |
+|---|---|---|
+| `request_id_conflict` | 409 | 幂等 ID 已用于另一个会话 |
+| `forbidden` | 403 | 设备令牌缺少所需 scope |
+| `invalid_scope` | 422 | 记忆 scope 非法 |
+| `invalid_date` | 422 | 日期格式应为 YYYY-MM-DD |
+
+## /health 新增字段
+
+`schema_version`、`is_mock`、`device_count`、`character_count`、
+`proactive_enabled`、`timezone`。

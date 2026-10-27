@@ -16,7 +16,7 @@ name: iOS Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, "night/**"]
     paths: ["frontend/**", ".github/workflows/ios-build.yml"]
   pull_request:
     paths: ["frontend/**", ".github/workflows/ios-build.yml"]

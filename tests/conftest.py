@@ -18,6 +18,7 @@ sys.path.insert(0, str(BACKEND_ROOT))
 
 from app import database  # noqa: E402
 from app.config import get_settings, reload_settings  # noqa: E402
+from app.bootstrap import bootstrap  # noqa: E402
 from app.database import create_all, init_engine  # noqa: E402
 from app.llm.base import LLMMessage, LLMProvider, LLMResult  # noqa: E402
 from app.llm import factory as llm_factory  # noqa: E402
@@ -65,6 +66,13 @@ def _isolated_env(monkeypatch, tmp_path):
     settings = get_settings()
     init_engine(f"sqlite:///{Path(settings.resolved_db_path).as_posix()}", force=True)
     create_all()
+
+    # 与生产一致的启动流程：播种内置人格 + 虚构生活
+    import app.database as _db  # noqa: E402
+
+    with _db.get_session_factory()() as _s:
+        bootstrap(_s)
+
     llm_factory.set_provider(None)
 
     yield

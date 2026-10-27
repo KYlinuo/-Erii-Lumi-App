@@ -21,6 +21,10 @@ enum LUMIError: LocalizedError, Sendable, Equatable {
     case serverUnknown(code: String, httpStatus: Int, message: String)
     case decodingFailure(String)
     case emptyReply
+    /// 同一个幂等 ID 被用在了另一个会话上（客户端逻辑错误）
+    case requestIdConflict
+    /// 当前设备令牌缺少某个 scope
+    case forbidden
 
     /// 面向用户的中文提示（直接展示在聊天气泡或提示条上）。
     var userMessage: String {
@@ -60,6 +64,10 @@ enum LUMIError: LocalizedError, Sendable, Equatable {
             return "服务器响应格式无法解析，可能是版本不匹配。"
         case .emptyReply:
             return "模型返回了空内容，请重试。"
+        case .requestIdConflict:
+            return "这条消息的编号已被用于其他会话，请重新发送。"
+        case .forbidden:
+            return "当前设备权限不足，请重新注册设备。"
         }
     }
 
@@ -92,7 +100,7 @@ enum LUMIError: LocalizedError, Sendable, Equatable {
              .upstreamBadResponse, .emptyReply, .rateLimited:
             return true
         case .unauthorized, .providerNotConfigured, .upstreamUnauthorized,
-             .invalidBaseURL, .decodingFailure:
+             .invalidBaseURL, .decodingFailure, .requestIdConflict, .forbidden:
             return false
         case .serverUnreachable(let status):
             return status >= 500
@@ -139,6 +147,10 @@ enum LUMIError: LocalizedError, Sendable, Equatable {
             return .providerNotConfigured
         case "upstream_bad_response", "upstream_error":
             return .upstreamBadResponse
+        case "request_id_conflict":
+            return .requestIdConflict
+        case "forbidden":
+            return .forbidden
         default:
             return .serverUnknown(code: code, httpStatus: httpStatus, message: message)
         }

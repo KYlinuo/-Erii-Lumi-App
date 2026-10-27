@@ -26,7 +26,7 @@ final class LUMIAPIClient: Sendable {
         }
     }
 
-    // MARK: - 端点
+    // MARK: - 系统
 
     func health() async throws -> HealthResponse {
         try await get("/api/v1/health")
@@ -36,8 +36,40 @@ final class LUMIAPIClient: Sendable {
         try await get("/api/v1/persona")
     }
 
-    func conversations() async throws -> [ConversationSummary] {
-        try await get("/api/v1/conversations")
+    // MARK: - 会话与聊天
+
+    func conversations(characterKey: String? = nil) async throws -> [ConversationSummary] {
+        var path = "/api/v1/conversations"
+        if let characterKey, let encoded = characterKey.addingPercentEncoding(
+            withAllowedCharacters: .urlQueryAllowed
+        ) {
+            path += "?character_key=\(encoded)"
+        }
+        return try await get(path)
+    }
+
+    func createConversation(characterKey: String? = nil) async throws -> ConversationSummary {
+        var path = "/api/v1/conversations"
+        if let characterKey, let encoded = characterKey.addingPercentEncoding(
+            withAllowedCharacters: .urlQueryAllowed
+        ) {
+            path += "?character_key=\(encoded)"
+        }
+        struct Created: Decodable, Sendable {
+            let id: String
+            let title: String
+            let characterId: String?
+            enum CodingKeys: String, CodingKey {
+                case id, title
+                case characterId = "character_id"
+            }
+        }
+        let created: Created = try await post(path, body: EmptyBody())
+        let now = ISO8601DateFormatter.lumiFractional.string(from: Date())
+        return ConversationSummary(
+            id: created.id, title: created.title, createdAt: now, updatedAt: now,
+            messageCount: 0, characterId: created.characterId, userId: nil
+        )
     }
 
     func messages(conversationID: String) async throws -> [ServerMessage] {
@@ -45,12 +77,192 @@ final class LUMIAPIClient: Sendable {
     }
 
     /// 发送一条消息并等待真实模型回复。
-    func sendMessage(text: String, conversationID: String?) async throws -> ChatResponse {
-        let body = ChatRequest(message: text, conversationId: conversationID)
+    ///
+    /// `requestID` 用于幂等：App 在网络极差时重发同一条，服务端不会产生第二条回复。
+    func sendMessage(
+        text: String,
+        conversationID: String?,
+        requestID: String? = nil,
+        characterKey: String? = nil
+    ) async throws -> ChatResponse {
+        let body = ChatRequest(
+            message: text,
+            conversationId: conversationID,
+            requestId: requestID,
+            characterKey: characterKey
+        )
         return try await post("/api/v1/chat", body: body)
     }
 
+    /// 切换会话所属人格（不合并人格，只是换一个角色继续聊）。
+    func switchCharacter(
+        conversationID: String,
+        characterKey: String
+    ) async throws -> String? {
+        guard let encoded = characterKey.addingPercentEncoding(
+            withAllowedCharacters: .urlQueryAllowed
+        ) else { return nil }
+        struct Result: Decodable, Sendable {
+            let id: String
+            let title: String
+            let characterId: String?
+            enum CodingKeys: String, CodingKey {
+                case id, title
+                case characterId = "character_id"
+            }
+        }
+        let result: Result = try await patch(
+            "/api/v1/conversations/\(conversationID)/character?character_key=\(encoded)",
+            body: EmptyBody()
+        )
+        return result.characterId
+    }
+
+    // MARK: - 人格
+
+    func characters() async throws -> [CharacterInfo] {
+        try await get("/api/v1/characters")
+    }
+
+    func character(key: String) async throws -> CharacterInfo {
+        try await get("/api/v1/characters/\(key)")
+    }
+
+    func idleLines(characterKey: String, limit: Int = 20) async throws -> IdleLinesResponse {
+        try await get("/api/v1/characters/\(characterKey)/idle-lines?limit=\(limit)")
+    }
+
+    // MARK: - 长期记忆
+
+    func memories(
+        characterKey: String? = nil,
+        scope: String? = nil,
+        limit: Int = 50
+    ) async throws -> [MemoryItem] {
+        var parts: [String] = ["limit=\(limit)"]
+        if let characterKey, let encoded = characterKey.addingPercentEncoding(
+            withAllowedCharacters: .urlQueryAllowed
+        ) {
+            parts.append("character_key=\(encoded)")
+        }
+        if let scope, let encoded = scope.addingPercentEncoding(
+            withAllowedCharacters: .urlQueryAllowed
+        ) {
+            parts.append("scope=\(encoded)")
+        }
+        return try await get("/api/v1/memory?\(parts.joined(separator: "&"))")
+    }
+
+    func memorySummary(characterKey: String? = nil) async throws -> MemorySummary {
+        if let characterKey, let encoded = characterKey.addingPercentEncoding(
+            withAllowedCharacters: .urlQueryAllowed
+        ) {
+            return try await get("/api/v1/memory/summary?character_key=\(encoded)")
+        }
+        return try await get("/api/v1/memory/summary")
+    }
+
+    func createMemory(scope: String, content: String, characterId: String? = nil) async throws -> MemoryItem {
+        struct Body: Encodable, Sendable {
+            let scope: String
+            let content: String
+            let characterId: String?
+            let sourceType: String
+            enum CodingKeys: String, CodingKey {
+                case scope, content
+                case characterId = "character_id"
+                case sourceType = "source_type"
+            }
+        }
+        return try await post(
+            "/api/v1/memory",
+            body: Body(scope: scope, content: content, characterId: characterId,
+                       sourceType: "user_explicit")
+        )
+    }
+
+    func archiveMemory(id: String) async throws {
+        let _: EmptyResponse = try await post("/api/v1/memory/\(id)/archive", body: EmptyBody())
+    }
+
+    func deleteMemory(id: String) async throws {
+        try await delete("/api/v1/memory/\(id)")
+    }
+
+    // MARK: - 虚构人生
+
+    func diary(characterKey: String, limit: Int = 30) async throws -> DiaryResponse {
+        try await get("/api/v1/world/\(characterKey)/diary?limit=\(limit)")
+    }
+
+    func timeline(characterKey: String, days: Int = 7) async throws -> [WorldEventItem] {
+        try await get("/api/v1/world/\(characterKey)/timeline?days=\(days)")
+    }
+
+    // MARK: - 设备
+
+    /// 注册本机。返回的明文令牌**只出现一次**，调用方必须立刻写入 Keychain。
+    func registerDevice(
+        name: String,
+        platform: String = "ios",
+        appVersion: String,
+        scopes: [String]? = nil
+    ) async throws -> DeviceRegistration {
+        let body = DeviceRegistrationRequest(
+            name: name, platform: platform, appVersion: appVersion, scopes: scopes
+        )
+        return try await post("/api/v1/devices", body: body)
+    }
+
+    func devices() async throws -> [DeviceInfo] {
+        try await get("/api/v1/devices")
+    }
+
+    func whoAmI() async throws -> WhoAmI {
+        try await get("/api/v1/devices/me")
+    }
+
+    // MARK: - 跨设备同步
+
+    /// 拉取全部会话的增量。返回体里的 `cursor` 需要回写本地，作为下次的 `since`。
+    func sync(since: [String: Int], limit: Int = 100) async throws -> SyncResponse {
+        try await post("/api/v1/sync", body: SyncRequest(since: since, limit: limit))
+    }
+
+    func syncConversation(
+        conversationID: String,
+        after: Int = 0,
+        limit: Int = 100
+    ) async throws -> [SyncMessage] {
+        try await get("/api/v1/sync/conversation/\(conversationID)?after=\(after)&limit=\(limit)")
+    }
+
+    // MARK: - 主动联系
+
+    func proactivePending(characterKey: String? = nil) async throws -> [ProactiveMessageItem] {
+        if let characterKey, let encoded = characterKey.addingPercentEncoding(
+            withAllowedCharacters: .urlQueryAllowed
+        ) {
+            return try await get("/api/v1/proactive?character_key=\(encoded)")
+        }
+        return try await get("/api/v1/proactive")
+    }
+
+    func proactiveStatus() async throws -> ProactiveStatus {
+        try await get("/api/v1/proactive/status")
+    }
+
+    func markProactiveDelivered(ids: [String]) async throws -> Int {
+        struct Body: Encodable, Sendable { let ids: [String] }
+        struct Result: Decodable, Sendable { let delivered: Int }
+        let result: Result = try await post("/api/v1/proactive/delivered", body: Body(ids: ids))
+        return result.delivered
+    }
+
     // MARK: - 底层
+
+    private struct EmptyBody: Encodable, Sendable {}
+    private struct EmptyResponse: Decodable, Sendable {}
 
     private func get<T: Decodable & Sendable>(_ path: String) async throws -> T {
         let request = try makeRequest(path: path, method: "GET", body: nil as Data?)
@@ -66,6 +278,20 @@ final class LUMIAPIClient: Sendable {
         return try await perform(request)
     }
 
+    private func patch<T: Decodable & Sendable, B: Encodable & Sendable>(
+        _ path: String,
+        body: B
+    ) async throws -> T {
+        let data = try JSONEncoder().encode(body)
+        let request = try makeRequest(path: path, method: "PATCH", body: data)
+        return try await perform(request)
+    }
+
+    private func delete(_ path: String) async throws {
+        let request = try makeRequest(path: path, method: "DELETE", body: nil as Data?)
+        let _: EmptyResponse = try await perform(request)
+    }
+
     private func makeRequest(path: String, method: String, body: Data?) throws -> URLRequest {
         let configuration = configurationProvider()
         guard var components = URLComponents(url: configuration.baseURL, resolvingAgainstBaseURL: true),
@@ -75,10 +301,15 @@ final class LUMIAPIClient: Sendable {
             throw LUMIError.invalidBaseURL(configuration.baseURL.absoluteString)
         }
 
-        // baseURL 可能带路径前缀，这里做一次拼接
+        // baseURL 可能带路径前缀，这里做一次拼接；查询串单独处理
         let basePath = components.path.hasSuffix("/") ? String(components.path.dropLast()) : components.path
-        components.path = basePath + path
-        components.queryItems = nil
+        let split = path.split(separator: "?", maxSplits: 1)
+        components.path = basePath + String(split[0])
+        if split.count > 1 {
+            components.percentEncodedQuery = String(split[1])
+        } else {
+            components.queryItems = nil
+        }
 
         guard let url = components.url else {
             throw LUMIError.invalidBaseURL(configuration.baseURL.absoluteString)
@@ -114,6 +345,10 @@ final class LUMIAPIClient: Sendable {
             throw Self.parseError(statusCode: http.statusCode, data: data, response: http)
         }
 
+        if T.self == EmptyResponse.self {
+            return EmptyResponse() as! T  // 204/空响应：只关心成功与否
+        }
+
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
@@ -137,6 +372,7 @@ final class LUMIAPIClient: Sendable {
         }
         // 兜底：非标准错误体（例如网关返回的 HTML）
         if statusCode == 401 { return .unauthorized }
+        if statusCode == 409 { return .requestIdConflict }
         if statusCode == 429 { return .rateLimited(retryAfter: retryAfter) }
         if statusCode == 504 { return .upstreamTimeout }
         if statusCode == 503 { return .upstreamUnavailable }
