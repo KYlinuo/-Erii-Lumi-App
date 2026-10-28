@@ -64,6 +64,8 @@ jobs:
 
       - name: Run unit tests
         run: |
+          mkdir -p build
+          set +e
           set -o pipefail
           xcodebuild test \
             -project LUMI.xcodeproj \
@@ -72,10 +74,16 @@ jobs:
             -derivedDataPath build/test \
             -resultBundlePath build/LUMITests.xcresult \
             | tee build/test.log
-          echo "测试通过：$(grep -c "Test Case .* passed" build/test.log || true) 项"
+          status=${PIPESTATUS[0]}
+          passed=$(grep -c "Test Case .* passed" build/test.log || echo 0)
+          failed=$(grep -c "Test Case .* failed" build/test.log || echo 0)
+          echo "xcodebuild exit=$status  通过=$passed  失败=$failed"
+          # 只有 xcodebuild 本身失败才算失败；统计行不能污染步骤结果
+          exit $status
 
       - name: Build simulator app
         run: |
+          mkdir -p build
           set -o pipefail
           xcodebuild build \
             -project LUMI.xcodeproj \
