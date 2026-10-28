@@ -11,7 +11,7 @@
 |---|---|
 | 后端能跑吗？ | ✅ 能。真实启动、真实读写、**164 项测试全过** |
 | iOS 能编译吗？ | ✅ **已在 GitHub Actions 的 macOS Runner 上编译通过**，38 项 XCTest 全绿（模拟器） |
-| 有 IPA 吗？ | ⚠️ CI 会产出**未签名 IPA** 工件，需用侧载工具重签后才能装 |
+| 有 IPA 吗？ | ✅ **已产出**：`LUMI-unsigned.ipa` 480 KB，arm64、无签名，需侧载工具重签后安装 |
 | 接真实模型了吗？ | ❌ 没有（无 API Key）。默认 Mock，回复会明确标记 |
 | 语音能发吗？ | ⚠️ 客户端录音/播放代码完整；服务端**没有接真实 ASR/TTS**，转写返回「未接入」占位文本 |
 | 图片能发吗？ | ✅ 上传、鉴权、去重、渲染链路完整，有 15 项测试 |
@@ -103,6 +103,21 @@ open LUMI.xcodeproj
 ```
 
 ### 2.3 iOS —— 没有 Mac（CI 出未签名 IPA）
+
+**已实测通过**（2026-10-28）：
+
+| 项 | 值 |
+|---|---|
+| 工作流 | `.github/workflows/ios-build.yml`，`macos-15` Runner |
+| 结果 | 全步骤成功（编译 → 38 项 XCTest → 模拟器包 → 真机归档 → 打包 IPA） |
+| 产物 | `LUMI-unsigned.ipa` 480,211 字节，SHA256 `504d8df8d03b716ea03373d6249410a1323aee74f799c4999d5031b854eb3cdc` |
+| 架构 | arm64（Mach-O thin），**无 `_CodeSignature`、无 `embedded.mobileprovision`** |
+| 本地副本 | `dist/LUMI-unsigned.ipa`（已 gitignore） |
+
+安装方式：用 **Sideloadly / SideStore / AltStore** 配自己的 Apple ID 重签后安装。
+免费签名 7 天有效、不支持 APNs 远程推送。
+
+命令行获取：
 
 ```bash
 gh workflow run ios-build.yml

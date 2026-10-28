@@ -8,7 +8,8 @@
 
 **先说清楚现状**：后端 **164 项测试全绿**（本地 + GitHub Actions 双环境）；
 iOS 已在 `macos-15` Runner 上**真实编译通过**，**38 项 XCTest 全绿**（模拟器）；
-但**从未在真机上跑过**，也没有签名后的可安装包。所有未验证项都在
+构建产物 `LUMI-unsigned.ipa`（480 KB，arm64、未签名）已在 CI 中产出，
+但**从未在真机上跑过**——需要你自己用侧载工具重签安装后才能验证。所有未验证项都在
 [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) 里逐条列明，不含任何美化。
 
 | 持续集成 | 状态 |
@@ -121,12 +122,14 @@ xcodegen generate
 open LUMI.xcodeproj          # 连真机，选开发者账号直接运行
 ```
 
-没有 Mac 就用 CI 出**未签名 IPA**（侧载工具重签后安装）：
+没有 Mac 就用 CI 出**未签名 IPA**（侧载工具重签后安装）——已实测走通：
 
 ```bash
 gh workflow run ios-build.yml
 gh run watch
 gh run download <run-id> -n LUMI-unsigned-ipa
+# 产物：LUMI-unsigned.ipa（arm64，无签名），
+# 用 Sideloadly / SideStore 配自己的 Apple ID 重签后安装
 ```
 
 详细步骤与坑位见 [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md)。

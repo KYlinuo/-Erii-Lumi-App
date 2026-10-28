@@ -57,3 +57,6 @@ backend/data/relay_demo.db*
 backend/data/*.db-shm
 backend/data/*.db-wal
 backend/.agent_relay/
+
+# 构建产物（本地导出，不入库）
+dist/
