@@ -70,7 +70,38 @@
 
 ---
 
-## 四、视觉基础改造（本阶段已完成的部分）
+## 四、聊天界面与外观（已完成）
+
+| 文件 | 内容 |
+|---|---|
+| `Views/BubbleTheme.swift`（新） | 樱色微光 / 深夜星河 / 透明冰晶三套主题，**只提供样式参数** |
+| `Services/AppearanceStore.swift`（新） | 主题、背景图（模糊/亮度/遮罩）、双方头像，落 Application Support |
+| `Views/AppearanceSettingsView.swift`（新） | 主题切换、背景选择与滑杆、头像选择/清除 |
+| `Views/ModelStatusView.swift`（新） | 直接显示"模型尚未配置 / 已接入真实模型" |
+| `Views/MessageBubble.swift`（重写） | 双方头像、引用条、长按菜单（复制/引用/重发/删除）、图片全屏预览、连续消息合并头像 |
+| `Views/ChatView.swift`（重写） | 分组与时间分隔、引用状态、全屏预览、顶部头像与通话入口 |
+| `Views/ComposerBar.swift`（重写） | 引用条、表情条、图片/语音/发送三态切换 |
+| `Views/ProfileView.swift` | 去掉多人物切换，改为绘梨衣单人格 + 换头像 |
+| `Views/SettingsView.swift` | 新增「外观与气泡」「AI 模型」两个入口 |
+
+通话按钮不做假界面：点开是**真实能力说明页**（读取 `/speech/status`，
+显示 ASR/TTS 是否已接入，并说明为什么现在不能通话）。
+
+## 四（续）、后端：记忆强度与成本
+
+| 文件 | 内容 |
+|---|---|
+| `backend/app/memory.py` | `score_memory`：时间衰减（30 天半衰）+ 显著性 + 可信度 + 复述次数 + 相关性 |
+| `backend/app/models.py` | `MemoryRecord.recall_count` / `last_recalled_at` |
+| `backend/app/migrations.py` | 迁移 `2026102901`，只加列 |
+| `backend/app/services.py` | 按当前这句话重排记忆；注入过的记忆 `touch_recall`（复习效应） |
+| `backend/app/usage.py`（新） | Token 用量、成本估算、预算余量 |
+| `backend/app/routers/health.py` | `GET /api/v1/usage`（需鉴权） |
+| `backend/app/config.py` | `context_recent_messages` / `daily_token_budget` / 单价 |
+
+相关性用字符二元组重合度做轻量近似——**不是**真正的向量语义检索，
+但对"提到香菜 → 想起她不吃香菜"这种场景够用，且零额外依赖。
+
 
 | 文件 | 改动 |
 |---|---|
@@ -89,7 +120,7 @@
 
 | 项 | 结果 |
 |---|---|
-| 后端 pytest | **164 项全部通过**（本机 Windows） |
+| 后端 pytest | **174 项全部通过**（本机 Windows） |
 | Swift 语法检查 | `scripts/swift_lint.py` 通过（91 个类型） |
 | iOS 编译 | GitHub Actions `macos-15`，XcodeGen → `xcodebuild test` → 归档 → 打 IPA |
 | 产物 | `LUMI-unsigned.ipa`（arm64、未签名），可在 Actions 的 Artifacts 下载 |
@@ -102,14 +133,15 @@
 
 | 需求 | 状态 | 说明 |
 |---|---|---|
-| 微信式聊天交互（长按菜单/引用/图片预览/合并头像） | ❌ 未做 | 需要新增消息操作面板与状态机 |
-| 三套气泡主题（樱色微光/深夜星河/透明冰晶） | ❌ 未做 | 需先抽出 `BubbleStyle` 参数结构 |
-| 头像/背景/主题自定义 + 裁剪 | ❌ 未做 | 需要 PhotosPicker + 裁切视图 + 本地存储 |
+| 微信式聊天交互（长按菜单/引用/图片预览/合并头像） | ✅ 已做 | 引用仅本地展示，不上行给模型 |
+| 三套气泡主题 | ✅ 已做 | 共用 `MessageBubble`，只换 `BubbleTheme` |
+| 头像/背景自定义 | ✅ 已做 | 未做裁切（只做了等比缩放） |
 | App 图标多风格切换 | ❌ 未做 | 需要多套 `.appiconset` + `setAlternateIconName` |
 | 原生 Liquid Glass API | ❌ 未做 | 需 Xcode 26 / iOS 26 SDK，当前 CI 为 16.4 |
-| DeepSeek 真实接入 | ⚠️ 接口就绪，未接 | 后端已是 OpenAI 兼容适配器，填 `LUMI_API_KEY` 即可；未做流式输出 |
-| 长期记忆检索权重/遗忘曲线 | ⚠️ 部分 | 已有六分类+来源+可信度+注入，缺时间衰减与复述加权 |
-| Context Builder Token 预算 | ❌ 未做 | 目前是"最近 N 条 + 记忆若干条"的简单窗口 |
+| DeepSeek 真实接入 | ⚠️ 接口就绪，未接 | 后端是 OpenAI 兼容适配器，填 `LUMI_API_KEY` 即可；**流式输出未做** |
+| 记忆检索权重/遗忘曲线 | ✅ 已做 | 衰减+显著性+可信度+复述+相关性；缺真正的向量语义检索 |
+| Token 用量与预算 | ✅ 已做 | `/api/v1/usage`；**预算超限时尚未强制拦截请求** |
+| Context Builder 分桶预算 | ⚠️ 部分 | 有近期窗口与记忆条数上限，未做按主题压缩与摘要去重 |
 | 实时语音通话 / 视频通话 | ❌ 未做 | 需要 WebRTC/LiveKit（涉及第三方服务，未擅自引入） |
 | 角色实时渲染（眨眼/口型） | ❌ 未做 | 缺少分层立绘素材；接口未设计 |
 
