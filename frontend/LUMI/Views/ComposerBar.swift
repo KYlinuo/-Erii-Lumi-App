@@ -1,9 +1,13 @@
 import PhotosUI
 import SwiftUI
 
+/// 输入栏：文字 / 表情 / 图片 / 录音 / 发送，以及与键盘联动的引用条。
 struct ComposerBar: View {
     @Binding var text: String
     var isSending: Bool
+    /// 当前引用中的消息摘要（有值时显示引用条）
+    var quotedText: String?
+    var onCancelQuote: (() -> Void)?
     var onSend: () -> Void
     /// 选中图片后回调原始字节（由 ViewModel 负责落盘 + 上传）
     var onImage: (Data) -> Void = { _ in }
@@ -14,6 +18,9 @@ struct ComposerBar: View {
     @StateObject private var recorder = AudioRecorder()
     @State private var pickedItem: PhotosPickerItem?
     @State private var voiceError: String?
+    @State private var showEmoji = false
+
+    private let quickEmojis = ["🥺", "🌙", "🌸", "✨", "🫂", "😴", "🍵", "💜", "…", "嗯"]
 
     private var canSend: Bool {
         !isSending && !trimmedText.isEmpty
@@ -24,20 +31,33 @@ struct ComposerBar: View {
     }
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 0) {
+            if let quotedText, !quotedText.isEmpty {
+                quoteBar(quotedText)
+            }
+
             if let voiceError {
                 Text(voiceError)
                     .font(.caption2)
                     .foregroundStyle(.orange)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
+                    .padding(.top, 4)
+            }
+
+            if showEmoji {
+                emojiRow
             }
 
             HStack(alignment: .bottom, spacing: 8) {
                 if !recorder.isRecording {
+                    button("face.smiling", active: showEmoji) {
+                        showEmoji.toggle()
+                        if showEmoji { focused = false }
+                    }
                     PhotosPicker(selection: $pickedItem, matching: .images) {
                         Image(systemName: "photo.on.rectangle")
-                            .font(.system(size: 22))
+                            .font(.system(size: 21))
                             .foregroundStyle(.white.opacity(0.65))
                             .padding(.bottom, 8)
                     }
@@ -48,17 +68,17 @@ struct ComposerBar: View {
                 if recorder.isRecording {
                     recordingStrip
                 } else {
-                    TextField("给 LUMI 发消息…", text: $text, axis: .vertical)
+                    TextField("给绘梨衣发消息…", text: $text, axis: .vertical)
                         .textFieldStyle(.plain)
                         .focused($focused)
-                        .font(.system(size: 16))
+                        .font(LUMIStyle.Font.bubble)
                         .foregroundStyle(.white)
                         .lineLimit(1...5)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, 9)
                         .background(
-                            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                .fill(Color.white.opacity(0.09))
+                            RoundedRectangle(cornerRadius: 19, style: .continuous)
+                                .fill(Color.white.opacity(0.10))
                         )
                         .disabled(isSending)
                         .accessibilityIdentifier("composerTextField")
@@ -67,7 +87,7 @@ struct ComposerBar: View {
                 if canSend {
                     Button(action: onSend) {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 30))
+                            .font(.system(size: 29))
                             .foregroundStyle(Color(red: 0.72, green: 0.60, blue: 1.0))
                     }
                     .buttonStyle(.plain)
@@ -77,7 +97,7 @@ struct ComposerBar: View {
                         Task { await toggleRecording() }
                     } label: {
                         Image(systemName: recorder.isRecording ? "stop.circle.fill" : "mic.circle.fill")
-                            .font(.system(size: 30))
+                            .font(.system(size: 29))
                             .foregroundStyle(recorder.isRecording ? .red : .white.opacity(0.55))
                     }
                     .buttonStyle(.plain)
@@ -85,17 +105,14 @@ struct ComposerBar: View {
                     .accessibilityIdentifier("micButton")
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
-            .padding(.bottom, 6)
+            .padding(.horizontal, 10)
+            .padding(.top, 7)
+            .padding(.bottom, 5)
         }
-        .background(
-            Color(red: 0.07, green: 0.07, blue: 0.12)
-                .overlay(
-                    Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5),
-                    alignment: .top
-                )
-        )
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.white.opacity(0.07)).frame(height: 0.5)
+        }
         .onChange(of: pickedItem) { _, newValue in
             guard let newValue else { return }
             Task {
@@ -105,6 +122,59 @@ struct ComposerBar: View {
                 await MainActor.run { pickedItem = nil }
             }
         }
+    }
+
+    private func button(_ symbol: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 21))
+                .foregroundStyle(active ? LUMIStyle.violet : .white.opacity(0.65))
+                .padding(.bottom, 8)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func quoteBar(_ text: String) -> some View {
+        HStack(spacing: 8) {
+            Rectangle()
+                .fill(LUMIStyle.violet)
+                .frame(width: 2, height: 24)
+                .clipShape(Capsule())
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(0.6))
+                .lineLimit(1)
+            Spacer()
+            Button {
+                onCancelQuote?()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .background(Color.white.opacity(0.05))
+    }
+
+    private var emojiRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 14) {
+                ForEach(quickEmojis, id: \.self) { emoji in
+                    Button {
+                        text += emoji
+                    } label: {
+                        Text(emoji).font(.system(size: 22))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .background(Color.white.opacity(0.04))
     }
 
     private var recordingStrip: some View {
@@ -133,7 +203,7 @@ struct ComposerBar: View {
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 19, style: .continuous)
                 .fill(Color.white.opacity(0.09))
         )
     }
@@ -158,7 +228,13 @@ struct ComposerBar: View {
     VStack {
         Spacer()
         ComposerBar(text: .constant("你好"), isSending: false, onSend: { })
-        ComposerBar(text: .constant(""), isSending: true, onSend: { })
+        ComposerBar(
+            text: .constant(""),
+            isSending: false,
+            quotedText: "她说过的那句话",
+            onCancelQuote: { },
+            onSend: { }
+        )
     }
     .background(Color(red: 0.07, green: 0.07, blue: 0.12))
 }

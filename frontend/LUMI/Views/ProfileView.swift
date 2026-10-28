@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 /// 人物主页：角色的形象、背景、性格、兴趣与虚构生活介绍。
@@ -9,6 +10,8 @@ import SwiftUI
 struct ProfileView: View {
     @StateObject private var viewModel: PersonaViewModel
     @EnvironmentObject private var chatViewModel: ChatViewModel
+    @ObservedObject private var appearance = AppearanceStore.shared
+    @State private var characterAvatarItem: PhotosPickerItem?
 
     init(viewModel: PersonaViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -40,7 +43,7 @@ struct ProfileView: View {
                         )
                     }
 
-                    pickerSection
+                    avatarCard
                 }
                 .padding(.horizontal, 18)
                 .padding(.vertical, 20)
@@ -153,9 +156,44 @@ struct ProfileView: View {
         }
     }
 
-    // MARK: - 人格切换
+    // MARK: - 头像自定义（单人格，不做人格切换）
 
-    private var pickerSection: some View {
+    private var avatarCard: some View {
+        LUMICard {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("绘梨衣的形象")
+                    .font(.headline)
+                Text("可以换成你自己的图。仅保存在本机，不会上传到服务器。")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 12) {
+                    PhotosPicker(selection: $characterAvatarItem, matching: .images) {
+                        Label("选择图片", systemImage: "photo")
+                            .font(.subheadline)
+                    }
+                    if appearance.characterAvatar != nil {
+                        Button("恢复默认", role: .destructive) {
+                            appearance.clearCharacterAvatar()
+                        }
+                        .font(.subheadline)
+                    }
+                    Spacer()
+                }
+                .onChange(of: characterAvatarItem) { _, item in
+                    guard let item else { return }
+                    Task {
+                        if let data = try? await item.loadTransferable(type: Data.self) {
+                            await MainActor.run { appearance.saveCharacterAvatar(data) }
+                        }
+                        await MainActor.run { characterAvatarItem = nil }
+                    }
+                }
+            }
+        }
+    }
+
+    private var legacyPickerSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("切换人格")
                 .font(.headline)

@@ -72,7 +72,7 @@ final class ChatViewModel: ObservableObject {
 
     // MARK: - 发送
 
-    func send(text: String) {
+    func send(text: String, quoted: ChatMessage? = nil) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isSending else { return }
 
@@ -80,7 +80,8 @@ final class ChatViewModel: ObservableObject {
             role: .user,
             content: trimmed,
             status: .sending,
-            requestID: ChatMessage.makeRequestID()
+            requestID: ChatMessage.makeRequestID(),
+            quotedText: quoted.map { Self.quoteSnippet($0) }
         )
         messages.append(userMessage)
         isSending = true
@@ -378,6 +379,24 @@ final class ChatViewModel: ObservableObject {
             _ = try? await api.markProactiveDelivered(ids: Array(seen))
         } catch {
             // 主动消息拉取失败不影响主流程
+        }
+    }
+
+    /// 删除一条消息（仅本地移除；服务端软删除接口见 /sync/messages/{id}）
+    func delete(messageID: UUID) {
+        messages.removeAll { $0.id == messageID }
+        Task { try? await persist() }
+    }
+
+    static func quoteSnippet(_ message: ChatMessage) -> String {
+        switch message.kind {
+        case .text:
+            let text = message.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            return text.count > 60 ? String(text.prefix(60)) + "…" : text
+        case .image:
+            return "[图片]"
+        case .audio:
+            return "[语音] \(max(1, Int((Double(message.durationMs ?? 0) / 1000).rounded())))″"
         }
     }
 

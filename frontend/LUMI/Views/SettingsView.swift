@@ -18,6 +18,8 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                appearanceEntry
+                modelEntry
                 connectionSection
                 serverSection
                 securitySection
@@ -37,6 +39,31 @@ struct SettingsView: View {
             .task { await viewModel.checkConnection() }
         }
         .preferredColorScheme(.dark)
+    }
+
+    // MARK: - 外观 / 模型入口
+
+    private var appearanceEntry: some View {
+        Section {
+            NavigationLink {
+                AppearanceSettingsView()
+            } label: {
+                Label("外观与气泡", systemImage: "paintbrush.pointed")
+            }
+        } footer: {
+            Text("气泡主题、聊天背景、双方头像都在这里设置，只影响本机显示。")
+                .font(.caption2)
+        }
+    }
+
+    private var modelEntry: some View {
+        Section {
+            NavigationLink {
+                ModelStatusView()
+            } label: {
+                Label("AI 模型", systemImage: "sparkles")
+            }
+        }
     }
 
     // MARK: - 连接状态

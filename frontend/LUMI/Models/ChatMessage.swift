@@ -47,6 +47,8 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
     var durationMs: Int?
     /// 这条回复是否来自 Mock（未接真实模型）
     var isMock: Bool = false
+    /// 引用回复时，被引用那条消息的摘要（仅本地展示，不上行到后端）
+    var quotedText: String?
 
     init(
         id: UUID = UUID(),
@@ -63,7 +65,8 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
         mediaID: String? = nil,
         localMediaPath: String? = nil,
         durationMs: Int? = nil,
-        isMock: Bool = false
+        isMock: Bool = false,
+        quotedText: String? = nil
     ) {
         self.id = id
         self.role = role
@@ -80,6 +83,7 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
         self.localMediaPath = localMediaPath
         self.durationMs = durationMs
         self.isMock = isMock
+        self.quotedText = quotedText
     }
 
     var isFromUser: Bool { role == .user }
