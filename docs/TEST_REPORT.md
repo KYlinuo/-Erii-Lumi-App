@@ -240,3 +240,21 @@ declared types: 87
 2. GitHub Actions 实际运行（推送需要人工授权一次，见 `NEXT_MORNING.md`）；
 3. 真实 ASR / TTS（无密钥，零费用）；
 4. 真机录音权限弹窗与蓝牙耳机切换（需要设备）。
+
+## 5. 真实旧库原地升级（v0.1 → v0.3）— ✅ 通过
+
+用**仓库里真实存在的** `backend/data/lumi.db` 副本（它连 `schema_migrations` 表都没有，
+属于 v0.1 时代的库）直接启动 v0.3 后端：
+
+```
+迁移前：messages 列 = [content, status, model, error_code, latency_ms, created_at]
+        消息 1 条，无 schema_migrations 表
+
+启动后：/health → {"status":"ok","version":"0.3.0",
+                  "schema_version":"2026102801","character_count":5}
+迁移后：messages 列补到 [... client_ts, media_id, tokens_*, deleted_at, kind]
+        消息仍是 1 条（内容未动），kind 自动落到 'text'
+        版本记录 = [2026102701, 2026102702, 2026102801]
+```
+
+结论：**没有删库、没有丢消息**，老数据自动补默认值。这是"迁移而不是重建"的直接证据。
