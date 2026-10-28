@@ -6,13 +6,13 @@ struct ChatRequest: Encodable, Sendable {
     let message: String
     let conversationId: String?
     /// 幂等 ID：同一条消息重试时复用，服务端不会重复生成回复
-    let requestId: String?
+    var requestId: String? = nil
     /// 人格 key（缺省沿用会话已绑定的人格）
-    let characterKey: String?
+    var characterKey: String? = nil
     /// v0.3：图片 / 语音消息的媒体 ID（先上传，再带上它发消息）
-    let mediaId: String?
+    var mediaId: String? = nil
     /// v0.3：消息类型 text / image / audio
-    let kind: String
+    var kind: String = "text"
 
     enum CodingKeys: String, CodingKey {
         case message
