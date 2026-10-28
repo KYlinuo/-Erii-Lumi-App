@@ -5,8 +5,10 @@ import Foundation
 /// 一个 AI 角色（人格）定义。
 ///
 /// 服务端保留多套人格且互不合并：LUMI / 林穗 / 祁鹿 / 沈昼 / 绘梨衣。
-/// `source == "reconstructed"` 表示本机未找到原始设定文档，需要后续覆盖，
-/// 客户端不应把它当作「已经是最终设定」。
+/// `source` 说明这套设定的来历：
+/// - `builtin` / `erii-pet`：项目内置或沿用桌宠素材；
+/// - `agent-authored`：本机未找到原始设计文档，由 AI 工程师拟定的定稿，
+///   用户拿到原文后可直接覆盖——UI 会如实标注，不冒充「就是你原来的设定」。
 struct CharacterInfo: Decodable, Sendable, Identifiable, Equatable {
     let id: String
     let key: String
@@ -34,7 +36,10 @@ struct CharacterInfo: Decodable, Sendable, Identifiable, Equatable {
         case isActive = "is_active"
     }
 
-    /// 设定尚未定稿（本机没有原始设计文档），UI 上需要弱化展示。
+    /// 由 AI 工程师拟定（本机没有原始设计文档），可随时被用户原文覆盖。
+    var isAgentAuthored: Bool { source == "agent-authored" }
+
+    /// 本机没有原始设定文档、需要用户补充（保留给未来真正缺失的情况）。
     var isProvisional: Bool { source == "reconstructed" }
 
     /// 是否为来自 Windows 桌宠的既有设定。

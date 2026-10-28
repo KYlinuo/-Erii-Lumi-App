@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// 设计约束：
 /// - 保留多套人格，彼此独立展示，不做合并；
-/// - 标为 `reconstructed` 的人格会显式提示「设定待补充」，不冒充最终设定；
+/// - `agent-authored` 的人格会标注「AI 拟定 · 可替换」，如实说明这是工程师拟定的版本；
 /// - 明确声明她是虚构 AI 角色。
 struct ProfileView: View {
     @StateObject private var viewModel: PersonaViewModel
@@ -90,6 +90,9 @@ struct ProfileView: View {
                 LUMIBadge(text: "虚构 AI 角色", color: LUMIStyle.violet)
                 if character.fromDesktopPet {
                     LUMIBadge(text: "来自桌宠设定", color: LUMIStyle.sakura)
+                }
+                if character.isAgentAuthored {
+                    LUMIBadge(text: "AI 拟定 · 可替换", color: LUMIStyle.mint)
                 }
                 if character.isProvisional {
                     LUMIBadge(text: "设定待补充", color: .orange)

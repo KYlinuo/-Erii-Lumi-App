@@ -2,6 +2,59 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本遵循语义化版本。
 
+## [0.3.0] - 2026-10-28（第二阶段夜间开发）
+
+### Added — 后端
+
+- **媒体库** `backend/app/media.py`：图片 / 语音 / 表情上传、下载、删除。
+  安全约束全部有测试：magic bytes 嗅探（不信任客户端 MIME）、单文件上限
+  （图片 8 MiB / 语音 20 MiB，超限 413）、服务端生成文件名（`../../evil.png` 无效）、
+  内容哈希去重（同图只占一份磁盘）
+- **语音适配层** `backend/app/speech.py`：ASR / TTS 的 OpenAI 兼容适配器 +
+  Mock 实现。未配置时返回 `mock=true`，TTS 的 Mock 会生成**真正可播放的 WAV**，
+  让客户端播放链路在零成本下可验证
+- 新增接口：`POST/GET/DELETE /api/v1/media`、`/media/{id}/transcribe`、
+  `/api/v1/speech/tts`、`/api/v1/speech/transcribe`、`/api/v1/speech/status`
+- 聊天支持媒体：`POST /chat` 接受 `media_id` + `kind`，
+  voice-only 时正文由转写补全；图片没有视觉模型时插入明确说明，不让模型"凭空看图"
+- 迁移 `2026102801`：`messages.kind`（text/image/audio）+ 媒体索引
+
+### Added — iOS
+
+- **录音** `AudioRecorder`（AVAudioRecorder / m4a AAC / 电平动画 / 120s 上限 / 权限申请）
+- **播放** `AudioPlayer`（同刻只播一条，进度回调）
+- **媒体缓存** `MediaStore`（按 media_id 缓存 + 并发去重，滚动不会重复下载）
+- 输入栏新增「相册」与「麦克风」，图片/语音气泡可在聊天流里直接渲染与播放
+- `ChatMessage` 增加 `kind` / `mediaID` / `localMediaPath` / `durationMs`，
+  本地文件保证上传前即可预览、重启后仍可离线查看
+- 失败重试支持媒体消息（本地文件还在就重新上传）
+- Info.plist 补 `NSMicrophoneUsageDescription` / `NSPhotoLibraryUsageDescription`
+- 新增 `LUMITests/MediaDecodingTests.swift`（7 项，含 v0.2 后端兼容回退）
+
+### Added — 工程
+
+- `scripts/swift_lint.py`：Windows 上的 Swift 静态检查
+  （tree-sitter 语法解析 + 括号配平 + 顶层重复声明），33 个文件全部通过
+- `scripts/github_publish.ps1`：一键推 GitHub 并触发 iOS 构建（需人工点一次 Authorize）
+- `windows-bridge` 之外新增 `scripts/relay_converse.py`：由 Agent 充当模型跑通
+  真实多轮对话（9 轮，4 个人格，验证了记忆注入与幂等）
+
+### Fixed
+
+1. `_find_previous_reply` 用时间戳匹配回复，会把上一轮回复误判成本轮 → 改为
+   通过 `request_id` 精确绑定（由 9 轮 relay 对话暴露）
+2. `Message.to_dict()` 是 v0.1 兼容视图，不含 `kind`/`media_id`，
+   导致媒体消息在历史接口里退化成纯文本 → 补齐字段
+3. `ChatRequest.message` 的 `min_length=1` 让"纯语音消息"直接 422 → 改为允许空串，
+   由业务层判断"既无文字又无媒体"才报错
+4. Swift 静态检查发现并修复了 `ChatViewModel` 中媒体重试路径的遗漏
+
+### 已知限制
+
+- iOS 仍未在本机编译（Windows 无 Swift / iOS SDK）；语法级检查已通过
+- 未接入真实 ASR / TTS 服务（无密钥，全程零费用）
+- GitHub 推送需人工授权一次（App-Bound 加密 + 设备码，见 NEXT_MORNING）
+
 ## [0.2.0] - 2026-10-28（夜间开发）
 
 ### Added — 后端

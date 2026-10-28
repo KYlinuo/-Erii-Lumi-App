@@ -22,6 +22,7 @@ from app.routers import (
     conversations,
     devices,
     health,
+    media,
     memory as memory_router,
     proactive as proactive_router,
     sync,
@@ -85,6 +86,8 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(health.router)
+    app.include_router(media.router)
+    app.include_router(media.speech_router)
     app.include_router(chat.router)
     app.include_router(conversations.router)
     # v0.2

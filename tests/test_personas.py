@@ -119,6 +119,34 @@ def test_character_to_dict_exposes_traits(db_session):
     assert isinstance(data["interests"], list) and data["interests"]
 
 
+def test_three_personas_are_agent_authored_and_declared_fictional(db_session):
+    """林穗/祁鹿/沈昼由本次 AI 工程师拟定为定稿，必须如实标注来源 + 声明是虚构。"""
+    for key in ("linsui", "qilu", "shenzhou"):
+        row = personas.get_character(db_session, key=key)
+        assert row.source == "agent-authored", key
+        assert "虚构设定" in row.background, f"{key} 的背景必须声明是虚构"
+        assert row.source != "reconstructed"
+
+
+def test_every_persona_has_edges_not_customer_service(db_session):
+    """人格要有棱角：每套设定都必须明确写出缺点/边界，避免变成千人一面的客服。"""
+    for key in ("lumi", "linsui", "qilu", "shenzhou", "erii"):
+        row = personas.get_character(db_session, key=key)
+        prompt = row.system_prompt
+        assert "【你的棱角】" in prompt or "【边界】" in prompt, f"{key} 缺少人格棱角/边界描述"
+        assert len(prompt) > 120, f"{key} 的 system_prompt 过于单薄"
+
+
+def test_persona_greetings_are_distinct(db_session):
+    greetings = [c.greeting for c in personas.list_characters(db_session)]
+    assert len(set(greetings)) == len(greetings), "每套人格的开场白应当不同"
+
+
+def test_persona_backgrounds_are_distinct(db_session):
+    backgrounds = [c.background for c in personas.list_characters(db_session)]
+    assert len(set(backgrounds)) == len(backgrounds), "每套人格的背景应当独立"
+
+
 def test_character_model_roundtrip(db_session):
     row = Character(
         key="custom", name="自定义角色", tagline="t", system_prompt="p",

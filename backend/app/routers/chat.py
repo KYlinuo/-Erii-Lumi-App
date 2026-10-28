@@ -14,8 +14,11 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from app import media as media_mod
+from app import speech
 from app.config import Settings, get_settings
 from app.database import get_db
+from app.models import MediaAsset
 from app.llm import ProviderError
 from app.ratelimit import rate_limit
 from app.schemas import ChatRequest, ChatResponse
@@ -40,6 +43,39 @@ async def chat(
     caller: Caller = Depends(verify_token),
 ) -> ChatResponse | JSONResponse:
     text = payload.message.strip()
+
+    # v0.3：图片 / 语音消息。voice-only 时允许 message 为空，
+    # 内容由 ASR 转写补上；图片没有配视觉模型时插入一句明确说明，
+    # 而不是让模型凭空"看见"图片。
+    kind = payload.kind
+    media_id = payload.media_id
+    if media_id:
+        asset = db.get(MediaAsset, media_id)
+        if asset is None:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={
+                    "error": {
+                        "code": "media_not_found",
+                        "message": "找不到这条媒体，请重新上传。",
+                        "hint": None,
+                    }
+                },
+                headers={"X-LUMI-Error-Code": "media_not_found"},
+            )
+        if not text:
+            if kind == "audio":
+                transcript = speech.transcribe(
+                    media_mod.path_for(asset).read_bytes(),
+                    mime=asset.mime,
+                    duration_ms=asset.duration_ms,
+                )
+                text = transcript.text
+            elif kind == "image":
+                text = "（用户发来一张图片）"
+            else:
+                text = "（媒体消息）"
+
     if not text:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -76,6 +112,8 @@ async def chat(
             request_id=payload.request_id,
             client_ts=payload.client_ts,
             user_id=caller.user_id,
+            media_id=media_id,
+            kind=kind,
         )
     except ProviderError as exc:
         http_status, problem = exc.to_problem()

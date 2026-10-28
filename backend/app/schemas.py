@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,7 +17,8 @@ class HistoryItem(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=8000)
+    # 允许为空：语音/图片消息只有 media_id，内容由服务端补全
+    message: str = Field(default="", max_length=8000)
     conversation_id: str | None = None
     # 客户端可选地携带上下文；缺省时后端从 SQLite 读取
     history: list[HistoryItem] | None = None
@@ -26,6 +28,9 @@ class ChatRequest(BaseModel):
     client_ts: datetime | None = None
     # v0.2：指定人格 key；缺省沿用会话已绑定的人格或默认人格
     character_key: str | None = None
+    # v0.3：图片 / 语音消息（先 PUT /media 上传，再把 media_id 带过来）
+    media_id: str | None = Field(default=None, max_length=64)
+    kind: Literal["text", "image", "audio"] = "text"
 
 
 class ChatResponse(BaseModel):
@@ -53,6 +58,8 @@ class MessageOut(BaseModel):
     error_code: str | None = None
     latency_ms: int | None = None
     created_at: str
+    kind: str = "text"
+    media_id: str | None = None
 
 
 class MessageSyncOut(BaseModel):
@@ -67,6 +74,8 @@ class MessageSyncOut(BaseModel):
     error_code: str | None = None
     latency_ms: int | None = None
     request_id: str | None = None
+    kind: str = "text"
+    media_id: str | None = None
     conv_seq: int | None = None
     client_ts: str | None = None
     media_id: str | None = None

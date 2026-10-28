@@ -337,3 +337,30 @@ def _migrate_persona(conn: Connection) -> None:
         "CREATE INDEX IF NOT EXISTS ix_proactive_pending "
         "ON proactive_messages (status, scheduled_at)",
     )
+
+
+@migration("2026102801", "消息类型（text/image/audio）+ 媒体库索引")
+def _m2026102801(conn: Connection) -> None:
+    """v0.3：区分文本 / 图片 / 语音消息，并为媒体去重建立索引。
+
+    只做增量 ADD COLUMN，不动既有数据；旧消息全部落到默认值 'text'。
+    """
+    if "kind" not in _columns(conn, "messages"):
+        conn.execute(
+            text("ALTER TABLE messages ADD COLUMN kind VARCHAR(16) NOT NULL DEFAULT 'text'")
+        )
+    _create_index(
+        conn,
+        "ix_messages_kind",
+        "CREATE INDEX IF NOT EXISTS ix_messages_kind ON messages (kind)",
+    )
+    _create_index(
+        conn,
+        "ix_media_sha",
+        "CREATE INDEX IF NOT EXISTS ix_media_sha ON media_assets (sha256)",
+    )
+    _create_index(
+        conn,
+        "ix_media_created",
+        "CREATE INDEX IF NOT EXISTS ix_media_created ON media_assets (created_at)",
+    )

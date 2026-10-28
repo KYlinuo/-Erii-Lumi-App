@@ -88,3 +88,22 @@
   `ERII_INTEGRATION.md`、`NIGHT_REPORT.md`、`NEXT_MORNING.md`。
 - 更新 `API.md`、`CHANGELOG.md`、`TEST_REPORT.md`、`ARCHITECTURE.md`、`README.md`。
 - Git 提交到 `night/v0.2`。
+
+---
+
+## 2026-10-28 白天续做（v0.3）
+
+| 时间 | 里程碑 | 状态 |
+|---|---|---|
+| — | 五套人格定稿（去掉 reconstructed 占位） | DONE |
+| — | Agent Relay：9 轮真实多轮对话落库（4 个人格） | DONE |
+| — | 修复 `_find_previous_reply` 误判幂等（真实缺陷） | DONE |
+| — | 媒体库：上传/下载/删除 + magic bytes 校验 + 去重 | DONE |
+| — | 语音适配层：ASR/TTS + Mock（可播放 WAV） | DONE |
+| — | 聊天支持 `media_id` + `kind`，纯语音消息可发送 | DONE |
+| — | iOS：录音、播放、媒体缓存、图片/语音气泡、相册与麦克风入口 | DONE |
+| — | `scripts/swift_lint.py`：33 个 Swift 文件语法检查通过 | DONE |
+| — | 后端测试 144 → 164，全绿；真实服务器端到端验过 | DONE |
+| — | 推 GitHub 触发 macOS 构建 | **BLOCKED**（App-Bound 加密 + 设备码需人工授权，已交付 `scripts/github_publish.ps1`） |
+| — | 真实 LLM / ASR / TTS 调用 | **BLOCKED**（无 API Key，零费用） |
+| — | iOS 编译 / IPA | **BLOCKED**（本机无 macOS 工具链） |

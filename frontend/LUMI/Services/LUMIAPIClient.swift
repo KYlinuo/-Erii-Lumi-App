@@ -83,13 +83,17 @@ final class LUMIAPIClient: Sendable {
         text: String,
         conversationID: String?,
         requestID: String? = nil,
-        characterKey: String? = nil
+        characterKey: String? = nil,
+        mediaID: String? = nil,
+        kind: String = "text"
     ) async throws -> ChatResponse {
         let body = ChatRequest(
             message: text,
             conversationId: conversationID,
             requestId: requestID,
-            characterKey: characterKey
+            characterKey: characterKey,
+            mediaId: mediaID,
+            kind: kind
         )
         return try await post("/api/v1/chat", body: body)
     }
@@ -290,6 +294,102 @@ final class LUMIAPIClient: Sendable {
     private func delete(_ path: String) async throws {
         let request = try makeRequest(path: path, method: "DELETE", body: nil as Data?)
         let _: EmptyResponse = try await perform(request)
+    }
+
+    // MARK: - 媒体与语音（v0.3）
+
+    /// 上传图片或语音。返回服务端媒体 ID，随后带上 `media_id` 发消息。
+    func uploadMedia(
+        data: Data,
+        filename: String,
+        mime: String,
+        kind: String,
+        durationMs: Int = 0
+    ) async throws -> MediaAssetDTO {
+        let boundary = "lumi-\(UUID().uuidString)"
+        var body = Data()
+        func append(_ text: String) {
+            if let encoded = text.data(using: .utf8) { body.append(encoded) }
+        }
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"kind\"\r\n\r\n\(kind)\r\n")
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"duration_ms\"\r\n\r\n\(durationMs)\r\n")
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n")
+        append("Content-Type: \(mime)\r\n\r\n")
+        body.append(data)
+        append("\r\n--\(boundary)--\r\n")
+
+        var request = try makeRequest(path: "/api/v1/media", method: "POST", body: body)
+        request.setValue(
+            "multipart/form-data; boundary=\(boundary)",
+            forHTTPHeaderField: "Content-Type"
+        )
+        request.timeoutInterval = 120
+        return try await perform(request)
+    }
+
+    /// 语音转写。`mock == true` 时界面必须显示「未接入 ASR」。
+    func transcribe(mediaID: String) async throws -> TranscriptDTO {
+        struct Empty: Encodable, Sendable {}
+        let request = try makeRequest(
+            path: "/api/v1/media/\(mediaID)/transcribe",
+            method: "POST",
+            body: try JSONEncoder().encode(Empty())
+        )
+        return try await perform(request)
+    }
+
+    /// 语音合成（返回可播放音频数据）。
+    func synthesize(text: String) async throws -> Data {
+        struct Body: Encodable, Sendable { let text: String }
+        let request = try makeRequest(
+            path: "/api/v1/speech/tts",
+            method: "POST",
+            body: try JSONEncoder().encode(Body(text: text))
+        )
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch let error as URLError {
+            throw LUMIError.from(error)
+        } catch {
+            throw LUMIError.cannotConnectToServer
+        }
+        guard let http = response as? HTTPURLResponse else {
+            throw LUMIError.serverUnreachable(status: 0)
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw Self.parseError(statusCode: http.statusCode, data: data, response: http)
+        }
+        return data
+    }
+
+    func speechStatus() async throws -> SpeechStatusDTO {
+        try await get("/api/v1/speech/status")
+    }
+
+    /// 下载媒体原始字节（图片气泡 / 语音播放用）。
+    func downloadMedia(mediaID: String) async throws -> Data {
+        let request = try makeRequest(path: "/api/v1/media/\(mediaID)", method: "GET", body: nil as Data?)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch let error as URLError {
+            throw LUMIError.from(error)
+        } catch {
+            throw LUMIError.cannotConnectToServer
+        }
+        guard let http = response as? HTTPURLResponse else {
+            throw LUMIError.serverUnreachable(status: 0)
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw Self.parseError(statusCode: http.statusCode, data: data, response: http)
+        }
+        return data
     }
 
     private func makeRequest(path: String, method: String, body: Data?) throws -> URLRequest {

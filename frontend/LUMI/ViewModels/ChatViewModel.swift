@@ -93,12 +93,116 @@ final class ChatViewModel: ObservableObject {
         }
     }
 
+    /// 发送图片。先把字节落到本地临时文件（气泡立刻能显示），再上传换 `media_id`。
+    func sendImage(data: Data, filename: String = "photo.jpg") {
+        guard !isSending, !data.isEmpty else { return }
+        let localPath = Self.persistLocalMedia(data: data, filename: filename)
+        let message = ChatMessage(
+            role: .user,
+            content: "",
+            status: .sending,
+            requestID: ChatMessage.makeRequestID(),
+            kind: .image,
+            localMediaPath: localPath
+        )
+        messages.append(message)
+        isSending = true
+        lastError = nil
+
+        Task { [weak self] in
+            guard let self else { return }
+            await self.uploadAndDeliver(
+                messageID: message.id,
+                data: data,
+                filename: filename,
+                mime: Self.mimeFor(filename: filename),
+                kind: .image,
+                durationMs: 0,
+                caption: ""
+            )
+        }
+    }
+
+    /// 发送语音。服务端没接 ASR 时会回一段标注为「未接入」的占位文本。
+    func sendVoice(fileURL: URL, duration: TimeInterval) {
+        guard !isSending else { return }
+        guard let data = try? Data(contentsOf: fileURL), !data.isEmpty else { return }
+        let durationMs = Int(duration * 1000)
+        let message = ChatMessage(
+            role: .user,
+            content: "",
+            status: .sending,
+            requestID: ChatMessage.makeRequestID(),
+            kind: .audio,
+            localMediaPath: fileURL.path,
+            durationMs: durationMs
+        )
+        messages.append(message)
+        isSending = true
+        lastError = nil
+
+        Task { [weak self] in
+            guard let self else { return }
+            await self.uploadAndDeliver(
+                messageID: message.id,
+                data: data,
+                filename: "voice.m4a",
+                mime: "audio/mp4",
+                kind: .audio,
+                durationMs: durationMs,
+                caption: ""
+            )
+        }
+    }
+
+    private func uploadAndDeliver(
+        messageID: UUID,
+        data: Data,
+        filename: String,
+        mime: String,
+        kind: MessageKind,
+        durationMs: Int,
+        caption: String
+    ) async {
+        do {
+            let asset = try await api.uploadMedia(
+                data: data,
+                filename: filename,
+                mime: mime,
+                kind: kind.rawValue,
+                durationMs: durationMs
+            )
+            if let index = messages.firstIndex(where: { $0.id == messageID }) {
+                messages[index].mediaID = asset.id
+                if kind == .audio && messages[index].durationMs == nil {
+                    messages[index].durationMs = asset.durationMs
+                }
+            }
+            await deliver(
+                messageID: messageID,
+                text: caption,
+                mediaID: asset.id,
+                kind: kind
+            )
+        } catch let error as LUMIError {
+            isSending = false
+            markFailed(messageID: messageID, error: error)
+        } catch {
+            isSending = false
+            markFailed(messageID: messageID, error: .cannotConnectToServer)
+        }
+    }
+
     /// 对失败的消息点「重试」——沿用同一个幂等 ID，服务端不会重复生成回复。
     func retry(messageID: UUID) {
         guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
         guard messages[index].status == .failed else { return }
         let text = messages[index].content
         let requestID = messages[index].requestID ?? ChatMessage.makeRequestID()
+        let kind = messages[index].kind
+        let localPath = messages[index].localMediaPath
+        let mediaID = messages[index].mediaID
+        let durationMs = messages[index].durationMs ?? 0
         messages[index].status = .sending
         messages[index].errorMessage = nil
         isSending = true
@@ -106,11 +210,38 @@ final class ChatViewModel: ObservableObject {
 
         Task { [weak self] in
             guard let self else { return }
-            await self.deliver(messageID: messageID, text: text, requestID: requestID)
+            // 语音/图片：本地文件还在就重新上传（上次可能停在半路）
+            if kind != .text, mediaID == nil, let localPath,
+               let data = try? Data(contentsOf: URL(fileURLWithPath: localPath)) {
+                let filename = (localPath as NSString).lastPathComponent
+                await self.uploadAndDeliver(
+                    messageID: messageID,
+                    data: data,
+                    filename: filename,
+                    mime: Self.mimeFor(filename: filename),
+                    kind: kind,
+                    durationMs: durationMs,
+                    caption: text
+                )
+                return
+            }
+            await self.deliver(
+                messageID: messageID,
+                text: text,
+                requestID: requestID,
+                mediaID: mediaID,
+                kind: kind
+            )
         }
     }
 
-    private func deliver(messageID: UUID, text: String, requestID: String? = nil) async {
+    private func deliver(
+        messageID: UUID,
+        text: String,
+        requestID: String? = nil,
+        mediaID: String? = nil,
+        kind: MessageKind = .text
+    ) async {
         defer { isSending = false }
 
         let resolvedRequestID = requestID
@@ -122,7 +253,9 @@ final class ChatViewModel: ObservableObject {
                 text: text,
                 conversationID: conversationID,
                 requestID: resolvedRequestID,
-                characterKey: characterKey
+                characterKey: characterKey,
+                mediaID: mediaID,
+                kind: kind.rawValue
             )
             conversationID = response.conversationId
 
@@ -268,5 +401,41 @@ final class ChatViewModel: ObservableObject {
         UserDefaults.standard.removeObject(forKey: Self.cursorKey)
         try? await store.clear()
         await insertGreeting()
+    }
+
+    // MARK: - 媒体辅助
+
+    /// 把图片字节写成临时文件，气泡可以在上传完成前就显示出来。
+    static func persistLocalMedia(data: Data, filename: String) -> String? {
+        let dir = mediaDirectory()
+        let ext = (filename as NSString).pathExtension.isEmpty ? "jpg" : (filename as NSString).pathExtension
+        let url = dir.appendingPathComponent("\(UUID().uuidString).\(ext)")
+        do {
+            try data.write(to: url, options: .atomic)
+            return url.path
+        } catch {
+            return nil
+        }
+    }
+
+    static func mediaDirectory() -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        let dir = base.appendingPathComponent("LUMI/media", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    static func mimeFor(filename: String) -> String {
+        switch (filename as NSString).pathExtension.lowercased() {
+        case "png": return "image/png"
+        case "gif": return "image/gif"
+        case "webp": return "image/webp"
+        case "heic": return "image/heic"
+        case "m4a": return "audio/mp4"
+        case "wav": return "audio/wav"
+        case "mp3": return "audio/mpeg"
+        default: return "image/jpeg"
+        }
     }
 }

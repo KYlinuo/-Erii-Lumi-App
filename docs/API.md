@@ -252,3 +252,43 @@ Base URL 不变：`http(s)://<server>/api/v1`。以下接口全部需要凭据
 
 `schema_version`、`is_mock`、`device_count`、`character_count`、
 `proactive_enabled`、`timezone`。
+
+---
+
+# v0.3 新增接口（媒体与语音）
+
+## 媒体
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/media` | multipart 上传（`file` + `kind` + `duration_ms`），返回媒体元信息 |
+| GET | `/media?kind=&limit=` | 媒体列表 |
+| GET | `/media/{id}` | 原始字节（鉴权 + `nosniff`） |
+| DELETE | `/media/{id}` | 删除记录；无人引用时才删磁盘文件 |
+| POST | `/media/{id}/transcribe` | 语音转写，返回 `{text, mock, language}` |
+
+上传约束：只接受 JPEG/PNG/GIF/WebP/HEIC 与 WAV/M4A/MP3/OGG/AMR，
+**按 magic bytes 判断**（客户端声明的 Content-Type 不作数）；图片 8 MiB、语音 20 MiB 上限。
+
+## 语音
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/speech/tts` | `{text, voice?}` → 音频字节；响应头 `X-LUMI-Mock` 标明是否 Mock |
+| POST | `/speech/transcribe` | 直接上传音频转写（不落库） |
+| GET | `/speech/status` | 是否已接入 ASR / TTS |
+
+未配置 `LUMI_ASR_MODEL` / `LUMI_TTS_MODEL` 时一律走 Mock：
+ASR 返回带「未接入」字样的占位文本，TTS 返回静音 WAV——**不会假装识别成功**。
+
+## 聊天携带媒体
+
+```json
+POST /api/v1/chat
+{"message": "", "media_id": "a7cf...", "kind": "image"}
+```
+
+- `kind` ∈ `text | image | audio`；
+- `message` 可为空：`audio` 时由服务端转写补全正文，`image` 时补一句
+  「（用户发来一张图片）」（没有视觉模型时不假装能看图）；
+- 消息落库带 `kind` 与 `media_id`，跨设备同步时另一端按同样方式渲染。

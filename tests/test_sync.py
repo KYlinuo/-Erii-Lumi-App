@@ -171,6 +171,43 @@ def test_different_request_ids_still_produce_separate_messages(monkeypatch):
     assert len([m for m in block["messages"] if m["role"] == "user"]) == 2
 
 
+def test_idempotent_replay_does_not_swallow_later_turns(monkeypatch):
+    """回归：第一轮的回复不能被误判成第二轮的回复，否则后续轮次会跳过模型调用。"""
+    client, iphone, _ = _two_device_app(monkeypatch)
+    headers = {"X-LUMI-TOKEN": iphone["token"]}
+    conv = client.post("/api/v1/conversations", headers=headers).json()["id"]
+
+    # 三轮各自独立的 request_id
+    replies = []
+    for idx, text in enumerate(["第一句", "第二句", "第三句"]):
+        body = client.post(
+            "/api/v1/chat",
+            json={
+                "message": text,
+                "conversation_id": conv,
+                "request_id": f"turn-{idx}",
+            },
+            headers=headers,
+        ).json()
+        replies.append(body)
+        assert body["idempotent_replay"] is False, f"第 {idx} 轮不应被判为重放"
+
+    sync = client.post("/api/v1/sync", json={"since": {}}, headers=headers).json()
+    block = next(c for c in sync["conversations"] if c["conversation_id"] == conv)
+    assert len([m for m in block["messages"] if m["role"] == "assistant"]) == 3
+    assert len([m for m in block["messages"] if m["role"] == "user"]) == 3
+
+    # 但同一 request_id 重发，仍然必须命中重放
+    again = client.post(
+        "/api/v1/chat",
+        json={"message": "第一句", "conversation_id": conv, "request_id": "turn-0"},
+        headers=headers,
+    ).json()
+    assert again["idempotent_replay"] is True
+
+    client.__exit__(None, None, None)
+
+
 def test_device_cursor_can_be_saved_and_read(monkeypatch):
     client, iphone, _ = _two_device_app(monkeypatch)
     headers = {"X-LUMI-TOKEN": iphone["token"]}

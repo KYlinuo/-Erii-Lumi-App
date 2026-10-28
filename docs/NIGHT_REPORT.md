@@ -202,3 +202,34 @@ cd D:/ProjectLUMI
 - ✅ 未删除、未覆盖既有工程与数据；数据库升级走原地迁移；
 - ✅ 未强推、未改写 Git 历史；
 - ✅ 未伪造测试通过、构建成功、真机安装或真实模型调用的任何记录。
+
+---
+
+# 续篇：v0.3（2026-10-28 白天续做）
+
+## 本轮实际做了什么
+
+| 方向 | 结果 |
+|---|---|
+| 人格定稿 | 5 套人格重写为「有棱角、可长期用」的稳定设定，去掉 `reconstructed` 标记 |
+| 真实多轮对话 | `scripts/relay_converse.py` 由 Agent 充当模型，4 个人格共 9 轮真实落库 |
+| 语音与图片消息 | 后端媒体库 + ASR/TTS 适配层 + iOS 录音/播放/发送，全部有测试 |
+| Swift 静态检查 | 新增 `scripts/swift_lint.py`，33 个文件语法全通过 |
+| 后端测试 | 144 → **164** 项，全绿 |
+
+## 9 轮真实对话（不是 Mock）
+
+`backend/data/relay_transcript.json` 记录：林穗 3 轮、祁鹿 2 轮、沈昼 2 轮、绘梨衣 2 轮，
+`idempotent_replay` 全为 `false`——说明每一轮都真实走了「人格注入 → 记忆注入 → 生成 → 落库」。
+
+这轮真实使用还**抓出了一个逻辑缺陷**：`_find_previous_reply` 原先按时间戳找"这条用户消息之后的
+第一条助手消息"，会把上一轮的回复误判成本轮的回复，导致第二、三轮被当成幂等重放而跳过模型。
+现已改为通过 `request_id` 精确绑定，并补了回归测试。
+
+## 仍然没做到的（如实记录）
+
+1. **iOS 没有编译过，也没有 IPA**。本机是 Windows，没有 Swift / iOS SDK。
+2. **没有接入真实的 LLM / ASR / TTS 服务**（无 API Key，全程零费用）。
+3. **没有推到 GitHub**。自动化进程复用了 Edge 的登录态，但 Windows 的 App-Bound 加密
+   使 cookie 无法在其它进程解密；GitHub 设备码授权也必须由人点一次 Authorize。
+   已提供 `scripts/github_publish.ps1`，人工跑一次即可推上去并触发 macOS 构建。

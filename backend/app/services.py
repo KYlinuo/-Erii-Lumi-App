@@ -140,6 +140,7 @@ def append_message(
     request_id: str | None = None,
     client_ts: datetime | None = None,
     media_id: str | None = None,
+    kind: str = "text",
     tokens_prompt: int | None = None,
     tokens_completion: int | None = None,
 ) -> Message:
@@ -155,6 +156,7 @@ def append_message(
         conv_seq=next_conv_seq(db, conversation_id),
         client_ts=client_ts,
         media_id=media_id,
+        kind=kind,
         tokens_prompt=tokens_prompt,
         tokens_completion=tokens_completion,
         created_at=now(),
@@ -170,20 +172,28 @@ def find_message_by_request_id(db: Session, request_id: str) -> Message | None:
     ).scalar_one_or_none()
 
 
+def reply_request_id(request_id: str) -> str:
+    """一条请求对应的回复消息使用的 request_id。
+
+    用户消息用 `rid`，它的回复用 `rid#reply`——两者都落在全局唯一索引内，
+    同时让「哪条回复属于哪条提问」变成确定性查找，而不是推断。
+    """
+    return f"{request_id}#reply"
+
+
 def _find_previous_reply(db: Session, conversation_id: str, request_id: str) -> dict | None:
-    """幂等重放：返回同一 request_id 上次产生的完整结果。"""
+    """幂等重放：返回同一 request_id 上次产生的完整结果。
+
+    回复与请求通过 `request_id` **精确关联**：用户消息存 `request_id`，
+    它的回复存 `request_id + "#reply"`。因此不需要靠序号或时间戳去猜
+    「哪条回复属于哪条提问」——那种推断在多轮、重试、乱序落库时一定会出错
+    （真实缺陷，已由 `test_idempotent_replay_does_not_swallow_later_turns` 覆盖）。
+    """
     user_msg = find_message_by_request_id(db, request_id)
     if user_msg is None or user_msg.conversation_id != conversation_id:
         return None
-    assistant = db.execute(
-        select(Message)
-        .where(
-            Message.conversation_id == conversation_id,
-            Message.role == "assistant",
-            Message.created_at >= user_msg.created_at,
-        )
-        .order_by(Message.created_at.asc(), Message.id.asc())
-    ).scalars().first()
+
+    assistant = find_message_by_request_id(db, reply_request_id(request_id))
     if assistant is None:
         return None
     conv = db.get(Conversation, conversation_id)
@@ -277,6 +287,8 @@ async def send_message(
     request_id: str | None = None,
     client_ts: datetime | None = None,
     user_id: str | None = None,
+    media_id: str | None = None,
+    kind: str = "text",
 ) -> dict:
     """落库用户消息 → 调真实模型 → 落库助手消息。
 
@@ -329,7 +341,14 @@ async def send_message(
     else:
         _maybe_update_title(db, conv, user_text)
         user_msg = append_message(
-            db, conv.id, "user", user_text, request_id=request_id, client_ts=client_ts
+            db,
+            conv.id,
+            "user",
+            user_text,
+            request_id=request_id,
+            client_ts=client_ts,
+            media_id=media_id,
+            kind=kind,
         )
         db.commit()
 
@@ -384,6 +403,8 @@ async def send_message(
         latency_ms=result.latency_ms,
         tokens_prompt=result.prompt_tokens,
         tokens_completion=result.completion_tokens,
+        # 精确绑定：这条回复属于哪一个 request_id（幂等重放靠它定位）
+        request_id=reply_request_id(request_id) if request_id else None,
     )
     conv.updated_at = now()
     db.commit()

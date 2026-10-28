@@ -252,10 +252,12 @@ def cmd_characters(_args: argparse.Namespace) -> int:
     result = request("GET", "/api/v1/characters")
     for item in result:
         flag = ""
-        if item.get("source") == "reconstructed":
-            flag = "  ⚠ 设定待补充"
-        elif item.get("source") == "erii-pet":
+        if item.get("source") == "erii-pet":
             flag = "  （来自桌宠设定）"
+        elif item.get("source") == "agent-authored":
+            flag = "  （AI 拟定，可用原始文档覆盖）"
+        elif item.get("source") == "reconstructed":
+            flag = "  ⚠ 设定待补充"
         print(f"  {item['key']:10s} {item['name']}{flag}")
     return 0
 

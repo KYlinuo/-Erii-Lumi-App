@@ -183,3 +183,68 @@ git push -u origin night/v0.2
   两边都靠 `conv_seq` 增量拉取，重复提交还有 `request_id` 去重。
 - **虚构日记会不会被当成我的真实经历？** 不会。数据库里 `subject` 分了三层，
   角色的虚构人生和你的真实信息物理隔离，接口和界面也都带明确标注。
+
+---
+
+# 更新（v0.3）：现在还多了语音和图片
+
+## 新增可用能力
+
+- **发图片**：聊天页输入框左边的「相册」按钮，选图即发。图片先存到手机本地
+  （气泡立刻显示），再上传到服务器；断网时那张图还在，点「重试」会重新上传。
+- **发语音**：点麦克风录音，再点方块结束。录音上限 2 分钟。
+- **听语音**：如果服务器接了 TTS，可以让角色把回复读出来。
+
+## 关于「语音识别」
+
+现在**没有接真实的语音识别**（没有密钥）。所以发语音时，服务端会回一句
+「（语音消息 · N 秒；本机未接入 ASR，未做转写）」。这是**故意**的：宁可显示"没接"，
+也不假装听懂了。想真正用起来，在 `.env` 里加：
+
+```
+LUMI_ASR_MODEL=whisper-1
+LUMI_TTS_MODEL=tts-1
+LUMI_TTS_VOICE=alloy
+```
+
+（OpenAI 兼容的模型名，换成你用的服务商对应的名字即可。）
+
+## 怎么拿到 iOS 安装包（这是唯一还需要你动手的地方）
+
+这台机器上没有 Mac，也没法离线编译 iOS。工程已经写好，两条路：
+
+**A. 有 Mac**（最省事）
+
+```bash
+brew install xcodegen
+cd frontend
+xcodegen generate
+open LUMI.xcodeproj      # 连上 iPhone，选你的开发者账号直接跑
+```
+
+**B. 没有 Mac，用 GitHub Actions 出未签名 IPA**
+
+在 `D:\ProjectLUMI` 打开一个命令行窗口，运行仓库里的 `scripts/github_publish.ps1`
+（右键「使用 PowerShell 运行」也可以）。
+
+脚本会：检查工作区 → 让你在浏览器点一次 Authorize → 建私有仓库 → 推代码 →
+触发 macOS 构建。构建完成后：
+
+```bash
+gh run watch
+gh run download <run-id> -n LUMI-unsigned-ipa
+```
+
+拿到 `LUMI-unsigned.ipa` 后，用 **SideStore / Sideloadly** 配合你自己的免费 Apple ID
+重签安装（免费签名 7 天有效，且**不支持** APNs 远程推送——所以我们才用
+「服务端排队 + 打开 App 时拉取」的方式做主动消息）。
+
+> 为什么这一步不能全自动：Windows 对浏览器的登录态做了 App-Bound 加密，
+> 别的进程拿不到你的 GitHub cookie；GitHub 的设备码授权也必须由人点一次同意。
+> 这是安全设计，不是代码问题。
+
+## 我怎么确认代码没写错
+
+Windows 上没有 Swift 编译器，所以我在 `scripts/swift_lint.py` 里用 tree-sitter
+做了真实语法解析（33 个 Swift 文件）+ 括号配平 + 顶层重复声明检查，目前全部通过。
+**但这只是语法级**，类型和 SwiftUI 视图构建必须等 macOS 那次构建才知道。

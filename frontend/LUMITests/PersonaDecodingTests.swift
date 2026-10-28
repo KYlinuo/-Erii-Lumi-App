@@ -24,14 +24,26 @@ final class PersonaDecodingTests: XCTestCase {
         XCTAssertFalse(character.isProvisional)
     }
 
-    func testProvisionalCharacterIsFlagged() throws {
+    func testAgentAuthoredCharacterIsFlagged() throws {
+        // 本机没有原始设计文档、由 AI 工程师拟定的设定：必须如实标注，不冒充原作
         let json = """
         {"id":"c2","key":"qilu","name":"祁鹿","tagline":"","avatar_key":"qilu",
          "greeting":"","summary":"","traits":[],"interests":[],"background":"",
-         "speaking_style":"","source":"reconstructed","is_default":false,"is_active":true}
+         "speaking_style":"","source":"agent-authored","is_default":false,"is_active":true}
         """
         let character = try decode(CharacterInfo.self, json)
-        XCTAssertTrue(character.isProvisional, "缺少原始设定文档的人格必须被标记出来")
+        XCTAssertTrue(character.isAgentAuthored)
+        XCTAssertFalse(character.isProvisional)
+        XCTAssertFalse(character.fromDesktopPet)
+    }
+
+    func testMissingSourceStillFlaggedAsProvisional() throws {
+        let json = """
+        {"id":"c3","key":"x","name":"X","tagline":"","avatar_key":"x",
+         "greeting":"","summary":"","traits":[],"interests":[],"background":"",
+         "speaking_style":"","source":"reconstructed","is_default":false,"is_active":true}
+        """
+        XCTAssertTrue(try decode(CharacterInfo.self, json).isProvisional)
     }
 
     // MARK: - 记忆

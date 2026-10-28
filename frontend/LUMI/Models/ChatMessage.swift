@@ -14,6 +14,13 @@ enum MessageStatus: String, Codable, Sendable {
     case failed
 }
 
+/// 消息类型。语音/图片消息在气泡里的渲染方式完全不同，必须区分。
+enum MessageKind: String, Codable, Sendable, CaseIterable {
+    case text
+    case image
+    case audio
+}
+
 /// 一条聊天消息。本地持久化与网络传输共用这一模型。
 struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
@@ -30,6 +37,14 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
     var convSeq: Int?
     /// 客户端生成的幂等 ID：断线重发同一条不会产生第二条
     var requestID: String?
+    /// 消息类型（text / image / audio）
+    var kind: MessageKind = .text
+    /// 服务端媒体 ID（上传成功后才有）
+    var mediaID: String?
+    /// 本地文件路径：上传前用于立即显示，重启后仍可离线预览
+    var localMediaPath: String?
+    /// 语音时长（毫秒），用于气泡上的「3″」
+    var durationMs: Int?
 
     init(
         id: UUID = UUID(),
@@ -41,7 +56,11 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
         serverID: String? = nil,
         errorMessage: String? = nil,
         convSeq: Int? = nil,
-        requestID: String? = nil
+        requestID: String? = nil,
+        kind: MessageKind = .text,
+        mediaID: String? = nil,
+        localMediaPath: String? = nil,
+        durationMs: Int? = nil
     ) {
         self.id = id
         self.role = role
@@ -53,6 +72,10 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
         self.errorMessage = errorMessage
         self.convSeq = convSeq
         self.requestID = requestID
+        self.kind = kind
+        self.mediaID = mediaID
+        self.localMediaPath = localMediaPath
+        self.durationMs = durationMs
     }
 
     var isFromUser: Bool { role == .user }
@@ -74,6 +97,8 @@ struct ServerMessage: Decodable, Sendable {
     let errorCode: String?
     let latencyMs: Int?
     let createdAt: String
+    let kind: String?
+    let mediaId: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -85,6 +110,8 @@ struct ServerMessage: Decodable, Sendable {
         case errorCode = "error_code"
         case latencyMs = "latency_ms"
         case createdAt = "created_at"
+        case kind
+        case mediaId = "media_id"
     }
 
     func toChatMessage() -> ChatMessage {
@@ -95,7 +122,9 @@ struct ServerMessage: Decodable, Sendable {
             status: status == "error" ? .failed : .sent,
             createdAt: parsedDate,
             model: model,
-            serverID: id
+            serverID: id,
+            kind: MessageKind(rawValue: kind ?? "text") ?? .text,
+            mediaID: mediaId
         )
     }
 }

@@ -295,6 +295,8 @@ class Message(Base):
     # 客户端本地产生时间（可能不准，仅用于离线排序与去重）
     client_ts: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     media_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # text | image | audio | sticker —— v0.3
+    kind: Mapped[str] = mapped_column(String(16), nullable=False, default="text")
     tokens_prompt: Mapped[int | None] = mapped_column(Integer, nullable=True)
     tokens_completion: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # 软删除（tombstone）：删除也要能同步给另一端
@@ -318,6 +320,10 @@ class Message(Base):
             "error_code": self.error_code,
             "latency_ms": self.latency_ms,
             "created_at": _iso(self.created_at),
+            # v0.3：媒体消息。历史接口也要能看到类型，否则图片/语音在
+            # 另一台设备上会被渲染成一条普通文本。
+            "kind": self.kind or "text",
+            "media_id": self.media_id,
         }
         return {k: v for k, v in data.items() if v is not None}
 
@@ -336,6 +342,7 @@ class Message(Base):
             "conv_seq": self.conv_seq,
             "client_ts": _iso(self.client_ts),
             "media_id": self.media_id,
+            "kind": self.kind or "text",
             "tokens_prompt": self.tokens_prompt,
             "tokens_completion": self.tokens_completion,
             "deleted_at": _iso(self.deleted_at),

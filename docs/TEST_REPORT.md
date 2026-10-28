@@ -179,3 +179,64 @@
 2. GitHub Actions 实际运行（仓库尚未推送到远端）；
 3. 真实模型端到端调用（本机无 `LUMI_API_KEY`，本次**未产生任何 API 费用**）；
 4. 真机安装与 APNs（免费自签不支持远程推送）。
+
+---
+
+# v0.3 测试报告（2026-10-28 · 第二阶段）
+
+## 1. 后端 — ✅ 164/164 通过
+
+```
+164 passed in 35.31s
+```
+
+新增 `tests/test_media.py`（15 项）：
+
+| 用例 | 验证的行为 |
+|---|---|
+| `test_upload_image_and_download` | 上传→下载字节完全一致，响应带 `nosniff` |
+| `test_rejects_fake_mime` | 把 HTML 声明成 `image/png` 必须被 magic bytes 拦下 |
+| `test_upload_is_authenticated` | 无令牌 401 |
+| `test_client_filename_is_ignored` | 客户端传 `../../../../evil.png` 也只是普通文件名 |
+| `test_duplicate_content_reuses_storage` | 相同内容复用一条记录，不重复占盘 |
+| `test_audio_upload_and_transcribe_mock` | 未接入 ASR 时 `mock=true` 且文本含「未接入」 |
+| `test_transcribe_rejects_image` | 图片不能转写，返回 422 `not_audio` |
+| `test_tts_returns_playable_wav_marked_mock` | TTS Mock 产出真 WAV（`RIFF` 头 + 有帧） |
+| `test_tts_rejects_empty_text` | 空文本 422 |
+| `test_speech_status_reports_mock` | 状态接口如实报告 Mock |
+| `test_chat_with_image_media` | 图片消息落库 `kind=image` + `media_id` |
+| `test_chat_with_audio_media_uses_transcript` | 纯语音消息由转写补全正文 |
+| `test_chat_with_unknown_media_returns_404` | 媒体不存在返回 `media_not_found` |
+| `test_delete_removes_file_and_record` | 删除同时清掉磁盘文件 |
+| `test_media_list_filters_by_kind` | `kind` 过滤生效 |
+
+迁移测试同步更新，覆盖新增的 `2026102801` 步骤。
+
+## 2. 真实服务器端到端 — ✅ 通过
+
+`uvicorn` 实起 127.0.0.1:8031（`LUMI_PROVIDER=mock`）：
+
+1. `POST /media`（70 字节 PNG）→ 201，返回 `storage_uri=c4/<id>.png`；
+2. `POST /chat` `{"message":"看看这个","media_id":...,"kind":"image"}` → 200，有回复；
+3. `POST /speech/tts` → 200，`x-lumi-mock: true`，57644 字节可播放 WAV；
+4. `GET /speech/status` → `{"asr_configured":false,"tts_configured":false,"mock":true}`。
+
+## 3. iOS — ⚠️ 语法级验证通过，编译仍未执行
+
+新增 `scripts/swift_lint.py`（tree-sitter 语法解析 + 括号配平 + 顶层重复声明）：
+
+```
+swift files: 33
+declared types: 87
+未发现阻断问题
+```
+
+这是**语法级**证据，不等于编译通过。类型检查、SwiftUI 视图构建、Swift 6 严格并发
+仍然只能在 macOS 上验证。本机没有 Swift 工具链，因此本报告不声称 iOS 构建成功。
+
+## 4. 未验证项
+
+1. iOS 编译 / XCTest（含新增的 7 项媒体解码测试）；
+2. GitHub Actions 实际运行（推送需要人工授权一次，见 `NEXT_MORNING.md`）；
+3. 真实 ASR / TTS（无密钥，零费用）；
+4. 真机录音权限弹窗与蓝牙耳机切换（需要设备）。

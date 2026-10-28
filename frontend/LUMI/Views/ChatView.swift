@@ -12,9 +12,18 @@ struct ChatView: View {
             if let error = viewModel.lastError, !dismissError {
                 errorBanner(error)
             }
-            ComposerBar(text: $draft, isSending: viewModel.isSending) {
-                sendDraft()
-            }
+            ComposerBar(
+                text: $draft,
+                isSending: viewModel.isSending,
+                onSend: { sendDraft() },
+                onImage: { data in
+                    draft = ""
+                    viewModel.sendImage(data: data)
+                },
+                onVoice: { url, duration in
+                    viewModel.sendVoice(fileURL: url, duration: duration)
+                }
+            )
         }
         .background(
             LinearGradient(

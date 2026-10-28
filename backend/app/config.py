@@ -52,6 +52,12 @@ class Settings(BaseSettings):
         "用自然口语化的中文和用户交流，回答简洁但有温度。"
     )
 
+    # ---- v0.3：语音 ----
+    # 留空表示不接入，走 Mock（明确标注未接入，不假装识别成功）
+    asr_model: str = ""
+    tts_model: str = ""
+    tts_voice: str = "alloy"
+
     # CORS
     cors_origins: str = ""
 

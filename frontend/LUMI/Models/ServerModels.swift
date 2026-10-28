@@ -9,12 +9,18 @@ struct ChatRequest: Encodable, Sendable {
     let requestId: String?
     /// 人格 key（缺省沿用会话已绑定的人格）
     let characterKey: String?
+    /// v0.3：图片 / 语音消息的媒体 ID（先上传，再带上它发消息）
+    let mediaId: String?
+    /// v0.3：消息类型 text / image / audio
+    let kind: String
 
     enum CodingKeys: String, CodingKey {
         case message
         case conversationId = "conversation_id"
         case requestId = "request_id"
         case characterKey = "character_key"
+        case mediaId = "media_id"
+        case kind
     }
 }
 
