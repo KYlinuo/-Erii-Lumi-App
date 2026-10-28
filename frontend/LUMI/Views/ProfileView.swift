@@ -279,8 +279,9 @@ struct WrapLayout: Layout {
         return CGSize(width: maxWidth, height: y + rowHeight)
     }
 
+    // 参数顺序必须与协议一致：in → proposal → subviews → cache
     func placeSubviews(
-        in bounds: CGRect, subviews: Subviews, proposal: ProposedViewSize, cache: inout Cache
+        in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache
     ) {
         var x = bounds.minX
         var y = bounds.minY
