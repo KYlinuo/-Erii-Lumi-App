@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     device_token_secret: str = "lumi-device-salt"
 
     # ---- v0.2：人格 ----
-    default_character_key: str = "lumi"
+    default_character_key: str = "erii"
     # 启动时是否写入内置人格（林穗/祁鹿/沈昼/绘梨衣/LUMI）
     seed_characters: bool = True
 

@@ -36,10 +36,6 @@ _BODIES = (
     "那就慢慢来吧，反正在我这里不用着急。",
     "我会把它记下来，免得下次又从头讲一遍。",
 )
-_QUESTION_TAIL = (
-    "（这是 Mock Provider 的固定话术，用于无 Key 环境下的管线联调。）",
-)
-
 
 class MockProvider(LLMProvider):
     """确定性回答：同样的输入永远得到同样的输出，方便回放与测试。"""
@@ -67,7 +63,7 @@ class MockProvider(LLMProvider):
         digest = hashlib.sha256(text.encode("utf-8")).digest()
         opener = _OPENERS[digest[0] % len(_OPENERS)]
         body = _BODIES[digest[1] % len(_BODIES)]
-        return f"{opener}{text[:40]}。{body} {_QUESTION_TAIL[0]}"
+        return f"{opener}{text[:40]}。{body}"
 
     async def chat(self, messages: list[LLMMessage]) -> LLMResult:
         started = time.perf_counter()

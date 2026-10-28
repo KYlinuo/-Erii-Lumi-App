@@ -37,6 +37,8 @@ struct ChatResponse: Decodable, Sendable {
     let convSeq: Int?
     /// true 表示服务端没有再调用模型，直接重放了上次结果
     let idempotentReplay: Bool
+    /// true 表示这条回复来自 Mock（未接真实模型），界面要明确标注，不能装成真 AI
+    let isMock: Bool
 
     enum CodingKeys: String, CodingKey {
         case conversationId = "conversation_id"
@@ -48,6 +50,7 @@ struct ChatResponse: Decodable, Sendable {
         case characterId = "character_id"
         case convSeq = "conv_seq"
         case idempotentReplay = "idempotent_replay"
+        case isMock = "is_mock"
     }
 
     init(from decoder: any Decoder) throws {

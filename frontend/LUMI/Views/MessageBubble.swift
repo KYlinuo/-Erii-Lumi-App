@@ -25,10 +25,15 @@ struct MessageBubble: View {
                     Text(statusText)
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.35))
+                } else if message.isMock {
+                    // 明确告知：这条不是真实模型说的，避免用户误以为已接通
+                    Text("演示回复 · 未接入模型")
+                        .font(.caption2)
+                        .foregroundStyle(.orange.opacity(0.7))
                 } else if let model = message.model {
                     Text(model)
                         .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.35))
+                        .foregroundStyle(.white.opacity(0.3))
                 }
             }
             .frame(maxWidth: .infinity, alignment: message.isFromUser ? .trailing : .leading)

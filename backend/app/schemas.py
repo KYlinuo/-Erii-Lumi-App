@@ -42,6 +42,8 @@ class ChatResponse(BaseModel):
     latency_ms: int
     character_id: str | None = None
     conv_seq: int | None = None
+    # True 表示这条回复来自 Mock Provider（没接真实模型），界面需明确标注
+    is_mock: bool = False
     # True 表示这是一次幂等重放，服务端没有再调用模型
     idempotent_replay: bool = False
 

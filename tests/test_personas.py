@@ -62,8 +62,10 @@ def test_personas_are_not_merged(db_session):
 
 
 def test_unknown_key_falls_back_to_default(db_session):
+    from app.config import get_settings
+
     character = personas.resolve_character(db_session, "does-not-exist")
-    assert character.key == "lumi"
+    assert character.key == get_settings().default_character_key
 
 
 def test_system_prompt_contains_persona_and_guardrails(db_session):

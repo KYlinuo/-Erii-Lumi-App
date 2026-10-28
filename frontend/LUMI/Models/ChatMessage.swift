@@ -45,6 +45,8 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
     var localMediaPath: String?
     /// 语音时长（毫秒），用于气泡上的「3″」
     var durationMs: Int?
+    /// 这条回复是否来自 Mock（未接真实模型）
+    var isMock: Bool = false
 
     init(
         id: UUID = UUID(),
@@ -60,7 +62,8 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
         kind: MessageKind = .text,
         mediaID: String? = nil,
         localMediaPath: String? = nil,
-        durationMs: Int? = nil
+        durationMs: Int? = nil,
+        isMock: Bool = false
     ) {
         self.id = id
         self.role = role
@@ -76,6 +79,7 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
         self.mediaID = mediaID
         self.localMediaPath = localMediaPath
         self.durationMs = durationMs
+        self.isMock = isMock
     }
 
     var isFromUser: Bool { role == .user }

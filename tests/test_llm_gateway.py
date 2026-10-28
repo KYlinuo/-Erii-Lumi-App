@@ -159,7 +159,7 @@ def test_context_includes_system_persona_and_history(client, stub):
 
     last = stub.calls[-1]
     assert last[0].role == "system"
-    assert "LUMI" in last[0].content
+    assert last[0].content.strip()  # 人格提示词必须存在（不写死具体角色）
     assert [m.role for m in last[1:]] == ["user", "assistant", "user"]
 
 

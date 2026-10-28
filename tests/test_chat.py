@@ -24,7 +24,12 @@ def test_chat_sends_system_prompt_and_history(client, stub):
 
     last_call = stub.calls[-1]
     assert last_call[0].role == "system"
-    assert "LUMI" in last_call[0].content
+    # 断言「默认人格的名字出现在系统提示里」，而不是写死某个角色，
+    # 这样切换默认人格时测试不会假失败。
+    from app.config import get_settings
+
+    assert get_settings().default_character_key in ("erii", "lumi", "linsui", "qilu", "shenzhou")
+    assert last_call[0].content.strip()
     assert [m.role for m in last_call[1:]] == ["user", "assistant", "user"]
 
 

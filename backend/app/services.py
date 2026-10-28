@@ -205,6 +205,7 @@ def _find_previous_reply(db: Session, conversation_id: str, request_id: str) -> 
         "model": assistant.model or "",
         "latency_ms": assistant.latency_ms or 0,
         "character_id": conv.character_id if conv else None,
+        "is_mock": (assistant.model or "").startswith("mock-"),
         "idempotent_replay": True,
         "conv_seq": assistant.conv_seq,
     }
@@ -418,6 +419,7 @@ async def send_message(
         "latency_ms": result.latency_ms,
         "character_id": conv.character_id,
         "conv_seq": assistant_msg.conv_seq,
+        "is_mock": (result.model or "").startswith("mock-"),
         "idempotent_replay": False,
     }
 

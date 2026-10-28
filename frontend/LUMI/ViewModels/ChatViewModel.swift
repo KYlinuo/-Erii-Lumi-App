@@ -12,7 +12,7 @@ final class ChatViewModel: ObservableObject {
         didSet { UserDefaults.standard.set(conversationID, forKey: Self.conversationKey) }
     }
     /// 当前人格 key（由 AppSession 统一维护）
-    @Published var characterKey: String? = "lumi"
+    @Published var characterKey: String? = "erii"
 
     private static let conversationKey = "lumi.conversation.id"
     private static let cursorKey = "lumi.sync.cursor"
@@ -285,9 +285,11 @@ final class ChatViewModel: ObservableObject {
             let reply = ChatMessage(
                 role: .assistant,
                 content: response.reply,
-                model: response.model,
+                // Mock 的模型名不该当作"模型标签"展示给用户，改由 isMock 角标表达
+                model: response.isMock ? nil : response.model,
                 serverID: response.assistantMessageId,
-                convSeq: response.convSeq
+                convSeq: response.convSeq,
+                isMock: response.isMock
             )
             messages.append(reply)
             try await persist()
