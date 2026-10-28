@@ -6,9 +6,15 @@
 > 仓库：<https://github.com/KYlinuo/-Erii-Lumi-App>
 > 当前版本：**v0.3.0**　后端测试：**164 项全部通过**　开发分支：`workbuddy-dev`
 
-**先说清楚现状**：后端可以真跑，iOS 源码完整但**尚未在 macOS 上编译过**（开发机是
-Windows，没有 Swift/iOS SDK）。所有"未验证"的项目都在
+**先说清楚现状**：后端 **164 项测试全绿**（本地 + GitHub Actions 双环境）；
+iOS 已在 `macos-15` Runner 上**真实编译通过**，**38 项 XCTest 全绿**（模拟器）；
+但**从未在真机上跑过**，也没有签名后的可安装包。所有未验证项都在
 [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) 里逐条列明，不含任何美化。
+
+| 持续集成 | 状态 |
+|---|---|
+| Backend Tests (Ubuntu) | [![Backend Tests](https://github.com/KYlinuo/-Erii-Lumi-App/actions/workflows/backend-tests.yml/badge.svg)](https://github.com/KYlinuo/-Erii-Lumi-App/actions/workflows/backend-tests.yml) |
+| iOS Build (macOS) | [![iOS Build](https://github.com/KYlinuo/-Erii-Lumi-App/actions/workflows/ios-build.yml/badge.svg)](https://github.com/KYlinuo/-Erii-Lumi-App/actions/workflows/ios-build.yml) |
 
 ---
 

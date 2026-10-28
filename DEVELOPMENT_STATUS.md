@@ -10,8 +10,8 @@
 | 问题 | 答案 |
 |---|---|
 | 后端能跑吗？ | ✅ 能。真实启动、真实读写、**164 项测试全过** |
-| iOS 能装到手机上吗？ | ❌ **还没编译过**。开发机是 Windows，没有 Swift/iOS SDK |
-| 有 IPA 吗？ | ❌ 没有。需要 macOS 或 GitHub Actions 才能产出 |
+| iOS 能编译吗？ | ✅ **已在 GitHub Actions 的 macOS Runner 上编译通过**，38 项 XCTest 全绿（模拟器） |
+| 有 IPA 吗？ | ⚠️ CI 会产出**未签名 IPA** 工件，需用侧载工具重签后才能装 |
 | 接真实模型了吗？ | ❌ 没有（无 API Key）。默认 Mock，回复会明确标记 |
 | 语音能发吗？ | ⚠️ 客户端录音/播放代码完整；服务端**没有接真实 ASR/TTS**，转写返回「未接入」占位文本 |
 | 图片能发吗？ | ✅ 上传、鉴权、去重、渲染链路完整，有 15 项测试 |
@@ -48,27 +48,24 @@
 
 | 页面 / 能力 | 代码 | 编译验证 |
 |---|---|---|
-| 启动页（动画） | ✅ | ❌ |
-| 聊天页（气泡/状态/重试/复制/Emoji） | ✅ | ❌ |
-| 图片消息（相册选择、发送、渲染） | ✅ | ❌ |
-| 语音消息（录音、播放、时长） | ✅ | ❌ |
-| 人物主页 | ✅ | ❌ |
-| 记忆页（来源/可信度标注） | ✅ | ❌ |
-| 虚构日记页 | ✅ | ❌ |
-| 设置页（服务器/令牌/同步） | ✅ | ❌ |
-| 离线缓存 + 重启恢复 | ✅ | ❌ |
-| 增量同步 + 幂等重发 | ✅ | ❌ |
+| 启动页（动画） | ✅ | ✅ 编译通过 |
+| 聊天页（气泡/状态/重试/复制/Emoji） | ✅ | ✅ 编译通过 |
+| 图片消息（相册选择、发送、渲染） | ✅ | ✅ 编译通过 |
+| 语音消息（录音、播放、时长） | ✅ | ✅ 编译通过 |
+| 人物主页 | ✅ | ✅ 编译通过 |
+| 记忆页（来源/可信度标注） | ✅ | ✅ 编译通过 |
+| 虚构日记页 | ✅ | ✅ 编译通过 |
+| 设置页（服务器/令牌/同步） | ✅ | ✅ 编译通过 |
+| 离线缓存 + 重启恢复 | ✅ | ✅ 有通过的单元测试 |
+| 增量同步 + 幂等重发 | ✅ | ✅ 有通过的单元测试 |
 
-**为什么"代码 ✅ / 编译 ❌"**：本机是 Windows，没有 Swift 工具链和 iOS SDK。
-替代验证是 `scripts/swift_lint.py`（tree-sitter 真实语法解析）：
+**编译验证方式**：本机是 Windows，没有 Swift/iOS SDK，所以编译交给
+GitHub Actions 的 `macos-15` Runner：XcodeGen 生成工程 → `xcodebuild test`
+（iPhone 模拟器）→ 归档未签名 IPA。首轮构建暴露出 6 个真实缺陷，全部已修复，
+现在 **38 项 XCTest 全部通过**。
 
-```
-swift files: 33
-declared types: 87
-未发现阻断问题
-```
-
-这是**语法级**证据，不能替代类型检查与 SwiftUI 视图构建。
+本机另有 `scripts/swift_lint.py`（tree-sitter 语法解析）作为提交前的快速检查，
+但它是语法级、不能替代真编译——这次的 6 个错误里它一个都没能发现。
 
 ### Windows 侧
 
@@ -129,7 +126,7 @@ python scripts/smoke_test.py # 冒烟
 
 ## 3. 已知问题与限制
 
-1. **iOS 从未编译**。首次 `xcodebuild` 大概率会有若干类型/并发错误，需要按实际日志修。
+1. **iOS 只验证到「编译 + 单元测试」**。真机运行、权限弹窗、后台切换、弱网重连都还没在设备上试过。
 2. **没有真实模型密钥**，所有"AI 回复"目前来自 Mock（会标注）。
 3. **没有真实 ASR/TTS**，语音消息能被发送与播放，但转写内容是占位文本。
 4. **免费签名不支持 APNs**，主动消息只在打开 App 时拉取。
@@ -139,6 +136,22 @@ python scripts/smoke_test.py # 冒烟
    克隆后请用 `cd ./-Erii-Lumi-App`。
 
 ---
+
+## 3.1 持续集成实际抓到的 6 个缺陷
+
+这些错误本机（Windows）无法发现，全部由 macOS Runner 首次真实编译暴露：
+
+| # | 位置 | 问题 |
+|---|---|---|
+| 1 | `MemoryView.swift` | 单行字符串插值里换行写多语句表达式，Swift 不允许 |
+| 2 | `ChatMessage.swift` | 非 Sendable 的 `ISO8601DateFormatter` 作 static let，违反 Swift 6 并发检查 |
+| 3 | `MediaStore.swift` | `load()` 属于 `ConfigurationStore`，写成了 `ServerConfiguration.load()` |
+| 4 | `ProfileView.swift` | `WrapLayout` 缺 `typealias Cache`，且 `placeSubviews` 参数顺序写错 |
+| 5 | `LaunchView.swift` | `Animation.easeOut(delay:)` 不存在（delay 是修饰器） |
+| 6 | `MessageStore.swift` | `save()` 未确保父目录存在，自定义路径写入直接 NSCocoaError Code=4 |
+
+另外 CI 还抓到两个「本机能过、干净环境必挂」的依赖问题：
+`python-dotenv` 版本漂移、`python-multipart` 未声明。
 
 ## 4. 分支约定
 
