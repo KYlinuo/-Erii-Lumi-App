@@ -58,6 +58,10 @@ struct MainTabs: View {
                 }
         }
         .tint(LUMIStyle.violet)
+        // Tab 栏用系统材质而不是默认不透明灰块；
+        // 用 iOS 26 SDK 构建时这里会自动变成 Liquid Glass。
+        .toolbarBackground(.ultraThinMaterial, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
         .onAppear {
             // 统一 Tab 栏的玻璃质感
             let appearance = UITabBarAppearance()

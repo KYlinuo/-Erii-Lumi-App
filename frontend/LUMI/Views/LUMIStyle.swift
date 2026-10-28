@@ -38,6 +38,36 @@ enum LUMIStyle {
         .allowsHitTesting(false)
     }
 
+    // MARK: - 排版与间距令牌
+    //
+    // 之前字号/内边距散落在各个视图里，改一处要翻十个文件。
+    // 这里统一成令牌，尺寸接近主流 IM（正文 16pt，行距紧凑）。
+
+    enum Font {
+        static let bubble = SwiftUI.Font.system(size: 16, weight: .regular)
+        static let bubbleMeta = SwiftUI.Font.system(size: 11, weight: .regular)
+        static let title = SwiftUI.Font.system(size: 17, weight: .semibold, design: .rounded)
+        static let section = SwiftUI.Font.system(size: 15, weight: .semibold)
+        static let caption = SwiftUI.Font.system(size: 12, weight: .regular)
+    }
+
+    enum Spacing {
+        static let xs: CGFloat = 4
+        static let s: CGFloat = 8
+        static let m: CGFloat = 12
+        static let l: CGFloat = 16
+        static let xl: CGFloat = 24
+    }
+
+    enum Radius {
+        static let bubble: CGFloat = 18
+        static let card: CGFloat = 16
+        static let chip: CGFloat = 10
+    }
+
+    /// 气泡最多占屏宽的比例，避免长消息贴边
+    static let bubbleMaxWidthRatio: CGFloat = 0.76
+
     static func accent(for key: String) -> Color {
         switch key {
         case "lumi": return violet

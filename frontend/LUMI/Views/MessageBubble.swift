@@ -58,14 +58,14 @@ struct MessageBubble: View {
 
     private var textBubble: some View {
         Text(message.content)
-            .font(.system(size: 16))
+            .font(LUMIStyle.Font.bubble)
             .foregroundStyle(message.isFromUser ? .white : Color(red: 0.96, green: 0.95, blue: 0.99))
             .textSelection(.enabled)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
             .background(bubbleBackground)
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: LUMIStyle.Radius.bubble, style: .continuous)
                     .strokeBorder(message.status == .failed ? Color.red.opacity(0.55) : .clear, lineWidth: 1)
             )
             .opacity(message.status == .sending ? 0.72 : 1)
@@ -173,7 +173,7 @@ struct MessageBubble: View {
     }
 
     private var bubbleBackground: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
+        RoundedRectangle(cornerRadius: LUMIStyle.Radius.bubble, style: .continuous)
             .fill(
                 message.isFromUser
                 ? AnyShapeStyle(
