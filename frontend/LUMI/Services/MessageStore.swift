@@ -39,6 +39,12 @@ actor MessageStore {
     }
 
     func save(_ messages: [ChatMessage]) throws {
+        // 目录必须在这里保证存在：init 只拿到 URL，可能来自测试或自定义路径，
+        // 依赖 defaultDirectory() 先建目录会在别处直接 NSCocoaError Code=4。
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
         let data = try encoder.encode(messages)
         try data.write(to: fileURL, options: .atomic)
     }
