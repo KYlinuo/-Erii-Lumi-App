@@ -60,7 +60,7 @@ struct LaunchView: View {
                         .foregroundStyle(.white.opacity(0.72))
                 }
                 .opacity(appeared ? 1 : 0)
-                .animation(.easeOut(delay: 0.25), value: appeared)
+                .animation(.easeOut(duration: 0.5).delay(0.25), value: appeared)
 
                 VStack(spacing: 12) {
                     ProgressView()
@@ -100,7 +100,7 @@ struct LaunchView: View {
                 }
                 .buttonStyle(.plain)
                 .opacity(appeared ? 1 : 0)
-                .animation(.easeOut(delay: 0.6), value: appeared)
+                .animation(.easeOut(duration: 0.6).delay(0.6), value: appeared)
                 .accessibilityIdentifier("launchEnterButton")
             }
         }

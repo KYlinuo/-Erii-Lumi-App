@@ -239,10 +239,12 @@ struct TypingIndicator: View {
             withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: false)) {
                 phase = 1
             }
-            Timer.scheduledTimer(withTimeInterval: 0.45, repeats: true) { _ in
-                withAnimation(.easeInOut(duration: 0.4)) {
-                    phase = (phase + 1) % 3
-                }
+        }
+        // 用 onReceive 而不是 Timer：回调在 MainActor 上执行，
+        // 且随视图消失自动断开，不会留下永不 invalidate 的计时器。
+        .onReceive(Timer.publish(every: 0.45, on: .main, in: .common).autoconnect()) { _ in
+            withAnimation(.easeInOut(duration: 0.4)) {
+                phase = (phase + 1) % 3
             }
         }
     }
