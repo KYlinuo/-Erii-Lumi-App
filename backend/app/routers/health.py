@@ -15,6 +15,7 @@ from app.database import get_db, schema_version
 from app.llm.factory import get_provider, is_mock_provider
 from app.models import Character, Device
 from app.schemas import HealthResponse, PersonaResponse
+from app.security import verify_token
 
 logger = logging.getLogger("lumi.health")
 router = APIRouter(prefix="/api/v1")
@@ -75,3 +76,11 @@ def persona() -> PersonaResponse:
 @router.get("/time", tags=["system"])
 def server_time() -> dict:
     return {"server_time": datetime.now(timezone.utc).isoformat()}
+
+
+@router.get("/usage", tags=["usage"], dependencies=[Depends(verify_token)])
+def usage(days: int = 7, db: Session = Depends(get_db)):
+    """Token 用量与成本估算（数据来自 messages 表的 token 记账）。"""
+    from app import usage as usage_mod
+
+    return usage_mod.summarize(db, days=max(1, min(days, 30)))

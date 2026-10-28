@@ -364,3 +364,23 @@ def _m2026102801(conn: Connection) -> None:
         "ix_media_created",
         "CREATE INDEX IF NOT EXISTS ix_media_created ON media_assets (created_at)",
     )
+
+
+@migration("2026102901", "记忆复述权重：recall_count / last_recalled_at")
+def _m2026102901(conn: Connection) -> None:
+    """v2.0：记录每条记忆被回忆的次数与时间，用于检索加权。
+
+    只加列，不改既有数据；老记忆默认 recall_count=0（从没被回忆过）。
+    """
+    cols = _columns(conn, "memory_records")
+    if "recall_count" not in cols:
+        conn.execute(
+            text("ALTER TABLE memory_records ADD COLUMN recall_count INTEGER NOT NULL DEFAULT 0")
+        )
+    if "last_recalled_at" not in cols:
+        conn.execute(text("ALTER TABLE memory_records ADD COLUMN last_recalled_at TIMESTAMP"))
+    _create_index(
+        conn,
+        "ix_memory_recall",
+        "CREATE INDEX IF NOT EXISTS ix_memory_recall ON memory_records (status, recall_count)",
+    )

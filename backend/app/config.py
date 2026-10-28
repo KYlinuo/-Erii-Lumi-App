@@ -52,6 +52,15 @@ class Settings(BaseSettings):
         "用自然口语化的中文和用户交流，回答简洁但有温度。"
     )
 
+    # ---- v2.0：上下文与预算 ----
+    # 每次请求最多带多少条近期消息（滑动窗口）
+    context_recent_messages: int = 20
+    # 单日 token 预算；0 表示不限制
+    daily_token_budget: int = 200_000
+    # 估价用单价（美元 / 百万 token），仅用于成本估算展示
+    price_input_per_mtok: float = 0.28
+    price_output_per_mtok: float = 0.42
+
     # ---- v0.3：语音 ----
     # 留空表示不接入，走 Mock（明确标注未接入，不假装识别成功）
     asr_model: str = ""

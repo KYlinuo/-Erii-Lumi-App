@@ -35,6 +35,7 @@ from app.models import Conversation, Message
 logger = logging.getLogger("lumi.services")
 
 # 取回给模型的上下文条数（不含本次提问）
+# 默认滑动窗口；实际取值由 LUMI_CONTEXT_RECENT_MESSAGES 覆盖
 MAX_CONTEXT_MESSAGES = 40
 TITLE_MAX_LEN = 24
 DEFAULT_SYNC_PAGE = 100
@@ -240,14 +241,22 @@ def _build_context(
     if exclude_message_id:
         stmt = stmt.where(Message.id != exclude_message_id)
     history = db.execute(
-        stmt.order_by(Message.created_at.desc(), Message.id.desc()).limit(MAX_CONTEXT_MESSAGES)
+        stmt.order_by(Message.created_at.desc(), Message.id.desc()).limit(
+            max(4, settings.context_recent_messages or MAX_CONTEXT_MESSAGES)
+        )
     ).scalars().all()
     history = list(reversed(history))
 
     # 记忆与虚构世界都限定在「当前人格」的可见范围内
+    # 按「与当前这句话的相关性 + 记忆强度」挑最相关的几条，而不是简单取最新
     memories = memory_mod.query_memories(
-        db, character_id=character.id, limit=settings.memory_injection_limit
+        db,
+        character_id=character.id,
+        limit=settings.memory_injection_limit,
+        query=user_text,
     )
+    # 被用到的记忆记一次"回忆"，下次权重更高（复习效应）
+    memory_mod.touch_recall(db, memories)
     world_block = world_mod.recent_context(db, character.id, limit=3) if character.id else ""
 
     system_text = personas.compose_system_prompt(

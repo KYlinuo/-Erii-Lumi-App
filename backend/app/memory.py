@@ -346,6 +346,7 @@ def query_memories(
     include_shared: bool = True,
     limit: int | None = None,
     status: str = STATUS_ACTIVE,
+    query: str | None = None,
 ) -> list[MemoryRecord]:
     """按「当前人格」可见范围检索：用户层记忆 + 该人格自己的关系/虚构记忆。"""
     conditions = []
@@ -367,13 +368,18 @@ def query_memories(
     if scopes:
         stmt = stmt.where(MemoryRecord.scope.in_(list(scopes)))
 
-    # 高显著性 + 高可信度优先
+    # 先按静态强度粗排，再多取一些候选交给打分函数精排
     stmt = stmt.order_by(
         MemoryRecord.salience.desc(), MemoryRecord.confidence.desc(), MemoryRecord.updated_at.desc()
     )
     if limit:
-        stmt = stmt.limit(limit)
-    return list(db.execute(stmt).scalars())
+        stmt = stmt.limit(max(limit * 4, limit))
+    candidates = list(db.execute(stmt).scalars())
+    if query:
+        candidates = rank_memories(candidates, query)
+    if limit:
+        candidates = candidates[:limit]
+    return candidates
 
 
 def prompt_block(records: list[MemoryRecord]) -> str:
@@ -438,3 +444,73 @@ def count_by_scope(db: Session, character_id: str | None = None) -> dict[str, in
 
 def total_count(db: Session) -> int:
     return int(db.execute(select(func.count()).select_from(MemoryRecord)).scalar_one())
+
+
+# ------------------------------------------------------------------ 记忆强度
+#
+# 目标是「像人一样有轻重地回忆」，而不是随机丢弃：
+# - 时间衰减只是权重之一，重要事件即使很久也会被想起来；
+# - 被反复回忆的记忆会变强（复习效应）；
+# - 与当前话题相关的记忆优先；
+# - 原始聊天记录永远不会因此被删除。
+
+_RECENCY_HALF_LIFE_DAYS = 30.0
+
+
+def _recency_weight(record: MemoryRecord, now: datetime) -> float:
+    """指数衰减：30 天权重减半。未来时间按 1.0 处理（时区/时钟漂移保护）。"""
+    anchor = record.updated_at or record.created_at or now
+    try:
+        days = max(0.0, (now - anchor).total_seconds() / 86400.0)
+    except TypeError:  # naive/aware 混用时退化为不衰减
+        return 1.0
+    return 0.5 ** (days / _RECENCY_HALF_LIFE_DAYS)
+
+
+def _relevance_weight(record: MemoryRecord, query: str) -> float:
+    """字符二元组重合率，作为轻量语义近似（不引入额外依赖）。"""
+    if not query:
+        return 0.0
+    text = record.content or ""
+    q = query.strip()
+    if not q or not text:
+        return 0.0
+    grams_q = {q[i : i + 2] for i in range(len(q) - 1)} or {q}
+    grams_t = {text[i : i + 2] for i in range(len(text) - 1)} or {text}
+    hit = len(grams_q & grams_t)
+    return min(1.0, hit / max(1, len(grams_q)))
+
+
+def score_memory(record: MemoryRecord, query: str = "", now: datetime | None = None) -> float:
+    """综合得分。权重可解释、可调，不做黑箱。"""
+    now = now or datetime.now(timezone.utc)
+    recency = _recency_weight(record, now)
+    salience = min(1.0, max(0.0, (record.salience or 5) / 10.0))
+    confidence = min(1.0, max(0.0, record.confidence or 0.0))
+    recall = min(1.0, (record.recall_count or 0) / 5.0)
+    relevance = _relevance_weight(record, query)
+    return (
+        0.30 * recency
+        + 0.22 * salience
+        + 0.18 * confidence
+        + 0.10 * recall
+        + 0.20 * relevance
+    )
+
+
+def rank_memories(
+    records: list[MemoryRecord], query: str = "", now: datetime | None = None
+) -> list[MemoryRecord]:
+    now = now or datetime.now(timezone.utc)
+    return sorted(records, key=lambda r: score_memory(r, query, now), reverse=True)
+
+
+def touch_recall(db: Session, records: list[MemoryRecord]) -> None:
+    """记录"这次回忆用到了它们"：次数 +1、时间更新，供下次加权。"""
+    if not records:
+        return
+    now = datetime.now(timezone.utc)
+    for record in records:
+        record.recall_count = (record.recall_count or 0) + 1
+        record.last_recalled_at = now
+    db.flush()
