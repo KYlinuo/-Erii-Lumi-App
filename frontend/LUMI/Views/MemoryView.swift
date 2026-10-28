@@ -86,8 +86,7 @@ struct MemoryView: View {
                     Text("共 \(viewModel.items.count) 条记忆")
                         .font(.subheadline.weight(.semibold))
                     if let summary = viewModel.summary {
-                        Text("按类型：\(summary.byScope.sorted { $0.value > $1.value }
-                                .map { "\($0.key) \($0.value)" }.joined(separator: " · "))")
+                        Text(scopeBreakdown(summary))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
@@ -209,5 +208,16 @@ struct MemoryView: View {
                 }
             }
         }
+    }
+
+    /// 各类型记忆的占比摘要。
+    /// 注意：Swift 的单行字符串插值里不能换行写多语句表达式，
+    /// 所以这里先算好再交给 Text。
+    private func scopeBreakdown(_ summary: MemorySummary) -> String {
+        let parts = summary.byScope
+            .sorted { $0.value > $1.value }
+            .map { "\($0.key) \($0.value)" }
+            .joined(separator: " · ")
+        return parts.isEmpty ? "还没有分类统计" : "按类型：" + parts
     }
 }

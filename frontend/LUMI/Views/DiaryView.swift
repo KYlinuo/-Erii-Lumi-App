@@ -101,7 +101,7 @@ struct DiaryView: View {
     }
 
     private func timeText(_ iso: String?) -> String {
-        guard let iso, let date = ISO8601DateFormatter.lumiFractional.date(from: iso) else {
+        guard let iso, let date = LUMIDate.parse(iso) else {
             return ""
         }
         let formatter = DateFormatter()

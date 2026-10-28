@@ -115,7 +115,7 @@ struct ServerMessage: Decodable, Sendable {
     }
 
     func toChatMessage() -> ChatMessage {
-        let parsedDate = ISO8601DateFormatter.lumiFractional.date(from: createdAt) ?? Date()
+        let parsedDate = LUMIDate.parse(createdAt) ?? Date()
         return ChatMessage(
             role: MessageRole(rawValue: role) ?? .assistant,
             content: content,
@@ -129,11 +129,29 @@ struct ServerMessage: Decodable, Sendable {
     }
 }
 
-extension ISO8601DateFormatter {
-    /// 服务端用 `datetime.isoformat()`，可能带 6 位小数秒与 +00:00，需要两种格式兜底。
-    static let lumiFractional: ISO8601DateFormatter = {
+/// 服务端时间解析。`datetime.isoformat()` 可能带 6 位小数秒，也可能不带。
+///
+/// `ISO8601DateFormatter` 的 `date(from:)` / `string(from:)` 本身是线程安全的，
+/// 但它是非 Sendable 类型，作为 static let 会被 Swift 6 的并发检查拦下，
+/// 因此这里显式标记 `nonisolated(unsafe)` 并只暴露纯函数接口。
+enum LUMIDate {
+    nonisolated(unsafe) private static let fractional: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f
     }()
+
+    nonisolated(unsafe) private static let plain: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    static func parse(_ text: String) -> Date? {
+        fractional.date(from: text) ?? plain.date(from: text)
+    }
+
+    static func string(from date: Date) -> String {
+        fractional.string(from: date)
+    }
 }

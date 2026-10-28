@@ -256,9 +256,12 @@ struct FlexibleWrap<Content: View>: View {
 }
 
 struct WrapLayout: Layout {
+    /// 显式写出 Cache，否则 `inout ()` 不能稳定地当作协议要求来匹配。
+    typealias Cache = Void
+
     var spacing: CGFloat = 8
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
         let maxWidth = proposal.width ?? .infinity
         var x: CGFloat = 0
         var y: CGFloat = 0
@@ -277,7 +280,7 @@ struct WrapLayout: Layout {
     }
 
     func placeSubviews(
-        in bounds: CGRect, subviews: Subviews, proposal: ProposedViewSize, cache: inout ()
+        in bounds: CGRect, subviews: Subviews, proposal: ProposedViewSize, cache: inout Cache
     ) {
         var x = bounds.minX
         var y = bounds.minY

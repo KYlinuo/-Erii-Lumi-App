@@ -16,7 +16,7 @@ final class MediaStore: ObservableObject {
     @Published private(set) var failures: Set<String> = []
 
     private var inFlight: Set<String> = []
-    private lazy var client = LUMIAPIClient(configuration: { ServerConfiguration.load() })
+    private lazy var client = LUMIAPIClient(configuration: { ConfigurationStore.load() })
 
     func imageData(for id: String) -> Data? { images[id] }
     func audioData(for id: String) -> Data? { audios[id] }

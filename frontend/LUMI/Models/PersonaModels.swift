@@ -169,7 +169,7 @@ struct WorldEventItem: Decodable, Sendable, Identifiable, Equatable {
 
     var occurredDate: Date? {
         guard let occurredAt else { return nil }
-        return ISO8601DateFormatter.lumiFractional.date(from: occurredAt)
+        return LUMIDate.parse(occurredAt)
     }
 }
 
@@ -287,7 +287,7 @@ struct SyncMessage: Decodable, Sendable {
             role: MessageRole(rawValue: role) ?? .assistant,
             content: content,
             status: status == "error" ? .failed : .sent,
-            createdAt: (createdAt.flatMap { ISO8601DateFormatter.lumiFractional.date(from: $0) }) ?? Date(),
+            createdAt: (createdAt.flatMap { LUMIDate.parse($0) }) ?? Date(),
             model: model,
             serverID: id,
             convSeq: convSeq,

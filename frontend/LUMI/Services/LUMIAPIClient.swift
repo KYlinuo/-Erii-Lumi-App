@@ -65,7 +65,7 @@ final class LUMIAPIClient: Sendable {
             }
         }
         let created: Created = try await post(path, body: EmptyBody())
-        let now = ISO8601DateFormatter.lumiFractional.string(from: Date())
+        let now = LUMIDate.string(from: Date())
         return ConversationSummary(
             id: created.id, title: created.title, createdAt: now, updatedAt: now,
             messageCount: 0, characterId: created.characterId, userId: nil
