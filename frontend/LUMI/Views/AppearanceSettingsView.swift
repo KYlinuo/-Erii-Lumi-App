@@ -24,7 +24,7 @@ struct AppearanceSettingsView: View {
     // MARK: - App 图标
 
     private var iconSection: some View {
-        Section("App 图标") {
+        Section {
             ForEach(AppIconChoice.allCases) { choice in
                 Button {
                     appearance.iconChoice = choice
@@ -51,9 +51,10 @@ struct AppearanceSettingsView: View {
                 }
                 .buttonStyle(.plain)
             }
+        } header: {
+            Text("App 图标")
         } footer: {
             Text("切换后系统会弹出确认框；图标均为 App 内置，不占用你的相册。")
-                .font(.caption2)
         }
     }
 
