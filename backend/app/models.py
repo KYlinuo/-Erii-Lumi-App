@@ -22,6 +22,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -301,6 +302,8 @@ class Message(Base):
     tokens_completion: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # 软删除（tombstone）：删除也要能同步给另一端
     deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # 用户收藏的重要消息（用于「收藏重要消息」能力）
+    starred: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
 
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), default=_utcnow, index=True
@@ -345,6 +348,7 @@ class Message(Base):
             "kind": self.kind or "text",
             "tokens_prompt": self.tokens_prompt,
             "tokens_completion": self.tokens_completion,
+            "starred": bool(self.starred),
             "deleted_at": _iso(self.deleted_at),
             "created_at": _iso(self.created_at),
         }

@@ -69,6 +69,12 @@ class Settings(BaseSettings):
     tts_model: str = ""
     tts_voice: str = "alloy"
 
+    # ---- v2.x：视觉（图片理解）----
+    # DeepSeek 当前不提供图像理解；这里预留独立视觉模型（OpenAI 兼容）。
+    # 留空时图片消息降级为「（用户发来一张图片）」文本说明，不会假装看懂图片。
+    vision_model: str = ""
+    vision_base_url: str = ""
+
     # ---- v2.0：实时通话（LiveKit / WebRTC）----
     # 三者都填上才算「已配置」；留空则通话按钮只展示说明，不产生费用。
     livekit_url: str = ""

@@ -387,6 +387,25 @@ final class ChatViewModel: ObservableObject {
         Task { try? await persist() }
     }
 
+    /// 合成绘梨衣的文字回复为语音（TTS）。返回可播放音频数据。
+    func synthesizeSpeech(_ text: String) async throws -> Data {
+        try await api.synthesize(text: text)
+    }
+
+    /// 收藏 / 取消收藏一条消息，并同步到服务端。
+    func setStarred(messageID: UUID, starred: Bool) {
+        guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
+        messages[index].starred = starred
+        Task { try? await persist() }
+
+        // 同步到服务端（失败不打断本地状态）
+        guard let convID = conversationID,
+              let serverID = messages[index].serverID else { return }
+        Task {
+            try? await api.setMessageStarred(conversationID: convID, messageID: serverID, starred: starred)
+        }
+    }
+
     static func quoteSnippet(_ message: ChatMessage) -> String {
         switch message.kind {
         case .text:

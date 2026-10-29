@@ -112,7 +112,7 @@ def test_migrations_are_idempotent(tmp_path):
     with engine.begin() as conn:
         versions = sorted(r[0] for r in conn.execute(
             text("SELECT version FROM schema_migrations")))
-    assert versions == ["2026102701", "2026102702", "2026102801", "2026102901", "2026102902"]
+    assert versions == ["2026102701", "2026102702", "2026102801", "2026102901", "2026102902", "2026102903"]
 
 
 def test_orm_can_read_migrated_schema(tmp_path):

@@ -9,6 +9,7 @@ struct AppearanceSettingsView: View {
     @State private var characterAvatarItem: PhotosPickerItem?
     @State private var cropRequest: CropImageItem?
     @State private var cropTarget: CropTarget = .myAvatar
+    @State private var emojiText: String = ""
 
     enum CropTarget { case myAvatar, characterAvatar }
 
@@ -17,12 +18,18 @@ struct AppearanceSettingsView: View {
             iconSection
             themeSection
             backgroundSection
+            emojiSection
             avatarSection
         }
         .scrollContentBackground(.hidden)
         .background(LUMIStyle.pageBackground)
         .navigationTitle("外观")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            if emojiText.isEmpty {
+                emojiText = QuickEmojiStore.shared.emojis.joined(separator: ",")
+            }
+        }
         .fullScreenCover(item: $cropRequest) { request in
             ImageCropView(image: request.image) { cropped in
                 let data = cropped.jpegData(compressionQuality: 0.85) ?? Data()
@@ -166,6 +173,22 @@ struct AppearanceSettingsView: View {
                     .foregroundStyle(.secondary)
             }
             Slider(value: value, in: range)
+        }
+    }
+
+    // MARK: - 快捷表情
+
+    private var emojiSection: some View {
+        Section {
+            TextField("用英文逗号分隔，例如：🥺,🌙,🌸", text: $emojiText)
+                .autocorrectionDisabled()
+                .onChange(of: emojiText) { _, newValue in
+                    QuickEmojiStore.shared.update(fromRaw: newValue)
+                }
+        } header: {
+            Text("快捷表情")
+        } footer: {
+            Text("聊天输入框上方的快捷表情栏，按你自己的喜好定制。")
         }
     }
 

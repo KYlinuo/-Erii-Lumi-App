@@ -3,6 +3,8 @@ import SwiftUI
 /// 根视图：启动页 → 主界面（Tab：聊天 / 人物 / 记忆 / 日记 / 设置）。
 struct RootView: View {
     @EnvironmentObject private var session: AppSession
+    @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var appLock = AppLockStore.shared
 
     var body: some View {
         Group {
@@ -17,8 +19,49 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut, value: session.phase == .ready)
+        .overlay {
+            if appLock.isLocked {
+                LockScreenView(appLock: appLock)
+                    .transition(.opacity)
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                appLock.lock()
+            }
+        }
         .task {
             await session.bootstrap()
+        }
+    }
+}
+
+/// 应用锁屏：点击后走系统 Face ID / Touch ID 验证。
+struct LockScreenView: View {
+    @ObservedObject var appLock: AppLockStore
+
+    var body: some View {
+        ZStack {
+            LUMIStyle.pageBackground.ignoresSafeArea()
+            VStack(spacing: 18) {
+                Image(systemName: "faceid")
+                    .font(.system(size: 56))
+                    .foregroundStyle(LUMIStyle.violet)
+                Text("绘梨衣")
+                    .font(.title2.weight(.medium))
+                Text("点击解锁继续")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Button("解锁") {
+                    Task { _ = await appLock.unlock() }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(LUMIStyle.violet)
+                .padding(.top, 6)
+            }
+        }
+        .onAppear {
+            Task { _ = await appLock.unlock() }
         }
     }
 }

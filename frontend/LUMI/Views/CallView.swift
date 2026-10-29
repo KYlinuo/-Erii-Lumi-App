@@ -117,26 +117,64 @@ struct CallView: View {
             .overlay(Circle().strokeBorder(.white.opacity(0.2), lineWidth: 1))
     }
 
-    /// 视频模式的「角色影像」：本地渲染的立绘 + 呼吸动画。
-    /// 后续接入分层立绘素材后，可在此替换为 SpriteKit 眨眼/口型动画。
+    /// 视频模式的「角色影像」：本地渲染的立绘 + 呼吸 + 眨眼占位动画。
+    ///
+    /// 诚实说明：当前只有静态立绘，用「呼吸 + 轻微浮动 + 周期性眨眼（眼皮遮罩）」
+    /// 表现「待机状态有生命感」。真正的口型同步 / 表情变化需要分层立绘素材
+    /// （眼睛、嘴巴独立图层），后续接入 SpriteKit 时替换本视图即可，接口已预留。
     private var eriiLivePortrait: some View {
-        VStack(spacing: 0) {
+        ZStack {
             Image("EriiPortrait")
                 .resizable()
                 .scaledToFit()
                 .frame(width: 200, height: 200)
                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .strokeBorder(.white.opacity(0.2), lineWidth: 1)
-                )
-                .scaleEffect(breathing ? 1.03 : 0.99)
-                .animation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true), value: breathing)
-                .onAppear { breathing = true }
+
+            // 眨眼遮罩：闭眼时在立绘上 1/3 处叠一条与背景同色的细线，
+            // 模拟眼皮合上；素材换成独立眼睛图层后应删除此占位。
+            if isBlinking {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color(red: 0.10, green: 0.08, blue: 0.18).opacity(0.9))
+                    .frame(width: 90, height: 5)
+                    .offset(y: -28)
+            }
         }
+        .frame(width: 200, height: 200)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(.white.opacity(0.2), lineWidth: 1)
+        )
+        .scaleEffect(breathing ? 1.03 : 0.99)
+        .offset(y: floating ? -4 : 4)
+        .animation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true), value: breathing)
+        .animation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true), value: floating)
+        .onAppear {
+            breathing = true
+            floating = true
+            startBlinkLoop()
+        }
+        .onDisappear { blinkTask?.cancel() }
     }
 
     @State private var breathing = false
+    @State private var floating = false
+    @State private var isBlinking = false
+    @State private var blinkTask: Task<Void, Never>?
+
+    /// 周期眨眼：睁 3.5 秒 → 闭 0.12 秒，循环。给待机立绘一点「活着」的感觉。
+    private func startBlinkLoop() {
+        blinkTask?.cancel()
+        blinkTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 3_500_000_000)
+                guard !Task.isCancelled else { return }
+                isBlinking = true
+                try? await Task.sleep(nanoseconds: 120_000_000)
+                isBlinking = false
+            }
+        }
+    }
 
     private func controlButton(
         icon: String,

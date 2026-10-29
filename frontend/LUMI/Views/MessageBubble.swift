@@ -14,6 +14,8 @@ struct MessageBubble: View {
     var onReply: ((ChatMessage) -> Void)?
     var onDelete: ((ChatMessage) -> Void)?
     var onPreviewImage: ((UIImage) -> Void)?
+    var onSpeak: ((ChatMessage) -> Void)?
+    var onStar: ((ChatMessage) -> Void)?
 
     @ObservedObject private var mediaStore = MediaStore.shared
     @StateObject private var player = AudioPlayer()
@@ -297,6 +299,18 @@ struct MessageBubble: View {
             Button { onReply?(message) } label: {
                 Label("引用", systemImage: "quote.bubble")
             }
+        }
+
+        // 绘梨衣的文本回复可「念出来」（TTS）；未接入时后端返回 Mock 音，
+        // 也会明确标注，不会假装是真人声。
+        if !message.isFromUser && message.kind == .text {
+            Button { onSpeak?(message) } label: {
+                Label("朗读", systemImage: "speaker.wave.2")
+            }
+        }
+
+        Button { onStar?(message) } label: {
+            Label(message.starred ? "取消收藏" : "收藏", systemImage: message.starred ? "star.fill" : "star")
         }
 
         if message.status == .failed, let onRetry {

@@ -49,6 +49,8 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
     var isMock: Bool = false
     /// 引用回复时，被引用那条消息的摘要（仅本地展示，不上行到后端）
     var quotedText: String?
+    /// 是否已收藏
+    var starred: Bool = false
 
     init(
         id: UUID = UUID(),
@@ -66,7 +68,8 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
         localMediaPath: String? = nil,
         durationMs: Int? = nil,
         isMock: Bool = false,
-        quotedText: String? = nil
+        quotedText: String? = nil,
+        starred: Bool = false
     ) {
         self.id = id
         self.role = role
@@ -84,6 +87,7 @@ struct ChatMessage: Identifiable, Codable, Equatable, Sendable {
         self.durationMs = durationMs
         self.isMock = isMock
         self.quotedText = quotedText
+        self.starred = starred
     }
 
     var isFromUser: Bool { role == .user }

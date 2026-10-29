@@ -120,7 +120,13 @@ async def _resolve_text_and_media(
                 )
                 text = transcript.text
             elif kind == "image":
-                text = "（用户发来一张图片）"
+                # 图片理解：配置了视觉模型就真读图，否则降级为文本说明。
+                # 绝不假装「看懂」图片——DeepSeek 无视觉，默认走降级。
+                from app import vision
+
+                raw = media_mod.path_for(asset).read_bytes()
+                described = vision.describe_image(raw, asset.mime) if vision.vision_configured() else None
+                text = described or "（用户发来一张图片）"
             else:
                 text = "（媒体消息）"
 

@@ -163,3 +163,71 @@ def model_reset():
     from app.llm.factory import reset_model
 
     return {"current": reset_model(), "default": get_settings().provider_model}
+
+
+@router.get("/export", tags=["data"], dependencies=[Depends(verify_token)])
+def export_all(db: Session = Depends(get_db)):
+    """全量导出聊天记录 + 长期记忆（JSON），用于备份 / 迁移。
+
+    不包含媒体二进制，只导出元数据与文本；媒体文件仍在 media 目录。
+    """
+    from app.models import Conversation, Message, MemoryRecord
+
+    conversations = db.execute(
+        select(Conversation).order_by(Conversation.created_at.asc())
+    ).scalars().all()
+    convs = []
+    for c in conversations:
+        msgs = db.execute(
+            select(Message)
+            .where(Message.conversation_id == c.id, Message.deleted_at.is_(None))
+            .order_by(Message.created_at.asc())
+        ).scalars().all()
+        convs.append(
+            {
+                "id": c.id,
+                "title": c.title,
+                "character_id": c.character_id,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+                "messages": [m.to_sync_dict() for m in msgs],
+            }
+        )
+
+    memories = db.execute(
+        select(MemoryRecord).order_by(MemoryRecord.updated_at.desc())
+    ).scalars().all()
+    mems = [m.to_dict() for m in memories]
+
+    return {
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "version": __version__,
+        "schema": schema_version(),
+        "conversations": convs,
+        "memories": mems,
+    }
+
+
+@router.post("/data/wipe", tags=["data"], dependencies=[Depends(verify_token)])
+def wipe_data(payload: dict, db: Session = Depends(get_db)):
+    """清除全部数据并重建（危险操作，需显式确认参数 confirm=绘梨衣）。
+
+    删除所有会话、消息、记忆；用户/设备/角色保留。供「清除数据与重建」使用。
+    """
+    from app.models import Conversation, Message, MemoryRecord
+
+    if (payload.get("confirm") or "") != "绘梨衣":
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": {
+                    "code": "confirm_required",
+                    "message": "清除全部数据不可恢复，需携带 confirm='绘梨衣' 二次确认。",
+                    "hint": None,
+                }
+            },
+        )
+    db.execute(text("DELETE FROM messages"))
+    db.execute(text("DELETE FROM conversations"))
+    db.execute(text("DELETE FROM memory_records"))
+    db.commit()
+    return {"wiped": True, "note": "会话、消息、记忆已清空；用户/设备/角色保留。"}

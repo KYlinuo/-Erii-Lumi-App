@@ -20,7 +20,9 @@ struct ComposerBar: View {
     @State private var voiceError: String?
     @State private var showEmoji = false
 
-    private let quickEmojis = ["🥺", "🌙", "🌸", "✨", "🫂", "😴", "🍵", "💜", "…", "嗯"]
+    @ObservedObject private var emojiStore = QuickEmojiStore.shared
+
+    private var quickEmojis: [String] { emojiStore.emojis }
 
     private var canSend: Bool {
         !isSending && !trimmedText.isEmpty

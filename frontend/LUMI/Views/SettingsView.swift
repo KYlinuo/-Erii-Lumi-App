@@ -152,6 +152,25 @@ struct SettingsView: View {
 
     private var securitySection: some View {
         Section {
+            // 应用锁（Face ID / Touch ID）
+            Toggle(isOn: Binding(
+                get: { AppLockStore.shared.isEnabled },
+                set: { AppLockStore.shared.setEnabled($0) }
+            )) {
+                HStack(spacing: 10) {
+                    Image(systemName: "faceid")
+                        .foregroundStyle(LUMIStyle.violet)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("应用锁")
+                            .font(.subheadline)
+                        Text(AppLockStore.biometricTypeName() ?? "本机未启用生物识别")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .disabled(AppLockStore.biometricTypeName() == nil)
+
             HStack {
                 if showToken {
                     TextField("访问令牌", text: $viewModel.accessToken)

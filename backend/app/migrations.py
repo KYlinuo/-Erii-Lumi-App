@@ -399,3 +399,18 @@ def _m2026102902(conn: Connection) -> None:
         "ix_memory_pinned",
         "CREATE INDEX IF NOT EXISTS ix_memory_pinned ON memory_records (status, pinned)",
     )
+
+
+@migration("2026102903", "消息收藏：starred 字段")
+def _m2026102903(conn: Connection) -> None:
+    """v2.x：收藏重要消息（聊天记录里可标记，之后单独浏览）。"""
+    cols = _columns(conn, "messages")
+    if "starred" not in cols:
+        conn.execute(
+            text("ALTER TABLE messages ADD COLUMN starred INTEGER NOT NULL DEFAULT 0")
+        )
+    _create_index(
+        conn,
+        "ix_messages_starred",
+        "CREATE INDEX IF NOT EXISTS ix_messages_starred ON messages (conversation_id, starred)",
+    )

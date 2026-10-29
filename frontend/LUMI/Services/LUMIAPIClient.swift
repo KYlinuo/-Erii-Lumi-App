@@ -290,6 +290,15 @@ final class LUMIAPIClient: Sendable {
         return try await post(path, body: EmptyBody())
     }
 
+    /// 收藏 / 取消收藏一条消息。
+    func setMessageStarred(conversationID: String, messageID: String, starred: Bool) async throws {
+        let flag = starred ? "true" : "false"
+        let _: EmptyResponse = try await post(
+            "/api/v1/conversations/\(conversationID)/messages/\(messageID)/star?starred=\(flag)",
+            body: EmptyBody()
+        )
+    }
+
     // MARK: - 虚构人生
 
     func diary(characterKey: String, limit: Int = 30) async throws -> DiaryResponse {

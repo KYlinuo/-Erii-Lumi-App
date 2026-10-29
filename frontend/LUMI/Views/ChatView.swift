@@ -15,6 +15,7 @@ struct ChatView: View {
     @State private var callKind: CallKind = .voice
     @State private var showSearch = false
     @State private var scrollTarget: UUID?
+    @StateObject private var ttsPlayer = AudioPlayer()
 
     enum CallKind { case voice, video }
 
@@ -131,7 +132,9 @@ struct ChatView: View {
                             onRetry: { viewModel.retry(messageID: message.id) },
                             onReply: { quoted = $0 },
                             onDelete: { viewModel.delete(messageID: $0.id) },
-                            onPreviewImage: { previewImage = PreviewItem(image: $0) }
+                            onPreviewImage: { previewImage = PreviewItem(image: $0) },
+                            onSpeak: { speak($0) },
+                            onStar: { toggleStar($0) }
                         )
                         .id(message.id)
                         .padding(.bottom, meta.spacingBelow)
@@ -216,6 +219,30 @@ struct ChatView: View {
         let quote = quoted
         quoted = nil
         viewModel.send(text: text, quoted: quote)
+    }
+
+    // MARK: - 朗读与收藏
+
+    /// 把绘梨衣的文字回复合成为语音播出来（TTS）。
+    private func speak(_ message: ChatMessage) {
+        let text = message.content
+        guard !text.isEmpty else { return }
+        Task {
+            do {
+                let data = try await viewModel.synthesizeSpeech(text)
+                await MainActor.run {
+                    ttsPlayer.play(id: message.id, data: data)
+                }
+            } catch {
+                // 朗读失败静默处理：不打断聊天主流程
+            }
+        }
+    }
+
+    /// 收藏 / 取消收藏一条消息，并同步到服务端。
+    private func toggleStar(_ message: ChatMessage) {
+        let newValue = !message.starred
+        viewModel.setStarred(messageID: message.id, starred: newValue)
     }
 
     // MARK: - 错误提示条

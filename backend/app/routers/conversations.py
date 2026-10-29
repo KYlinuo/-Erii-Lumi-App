@@ -6,6 +6,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -79,6 +80,45 @@ def search(
 ) -> list[dict]:
     """在当前会话内按关键词搜索历史消息。"""
     return search_messages(db, conversation_id, query.strip(), limit=limit)
+
+
+@router.get("/{conversation_id}/messages/starred", response_model=list[MessageOut])
+def starred_messages(
+    conversation_id: str,
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    """收藏的消息列表（按收藏时间倒序，这里退化为按创建时间倒序）。"""
+    from app.models import Message
+
+    rows = db.execute(
+        select(Message)
+        .where(Message.conversation_id == conversation_id, Message.starred.is_(True))
+        .order_by(Message.created_at.desc())
+        .limit(limit)
+    ).scalars().all()
+    return [m.to_dict() for m in rows]
+
+
+@router.post("/{conversation_id}/messages/{message_id}/star", response_model=MessageOut)
+def star_message(
+    conversation_id: str,
+    message_id: str,
+    starred: bool = Query(default=True),
+    db: Session = Depends(get_db),
+) -> dict:
+    """收藏 / 取消收藏一条消息。"""
+    from app.models import Message
+
+    row = db.get(Message, message_id)
+    if row is None or row.conversation_id != conversation_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "not_found", "message": "消息不存在。", "hint": None},
+        )
+    row.starred = starred
+    db.commit()
+    return row.to_dict()
 
 
 @router.patch("/{conversation_id}/character", response_model=CreateConversationResponse)
