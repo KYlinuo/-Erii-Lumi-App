@@ -98,6 +98,95 @@ final class LUMIAPIClient: Sendable {
         return try await post("/api/v1/chat", body: body)
     }
 
+    /// 流式发送：`onDelta` 逐个收到正文片段，`onDone` 收到最终元数据。
+    ///
+    /// 用于「打字机」式逐字渲染。后端按 SSE 协议输出 `data: {...}` 行，
+    /// 事件类型为 `delta`（正文增量）与 `done`（收尾元数据）/ `error`。
+    func sendMessageStream(
+        text: String,
+        conversationID: String?,
+        requestID: String? = nil,
+        characterKey: String? = nil,
+        mediaID: String? = nil,
+        kind: String = "text",
+        onDelta: @escaping (String) -> Void,
+        onDone: @escaping (ChatResponse) -> Void
+    ) async throws {
+        let body = ChatRequest(
+            message: text,
+            conversationId: conversationID,
+            requestId: requestID,
+            characterKey: characterKey,
+            mediaId: mediaID,
+            kind: kind,
+            stream: true
+        )
+        let data = try JSONEncoder().encode(body)
+        let request = try makeRequest(path: "/api/v1/chat", method: "POST", body: data)
+
+        let (bytes, response): (URLSession.AsyncBytes, URLResponse)
+        do {
+            (bytes, response) = try await session.bytes(for: request)
+        } catch let error as URLError {
+            throw LUMIError.from(error)
+        } catch {
+            throw LUMIError.cannotConnectToServer
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw LUMIError.serverUnreachable(status: 0)
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            // 非 200：整体失败，复用后端的错误封套解析
+            throw Self.parseError(statusCode: http.statusCode, data: Data(), response: http)
+        }
+
+        var buffer = ""
+        let decoder = JSONDecoder()
+        for try await line in bytes.lines {
+            buffer += line
+            if !buffer.hasSuffix("\n") { continue }  // 等整行收齐
+            let trimmed = buffer.trimmingCharacters(in: .whitespacesAndNewlines)
+            buffer = ""
+            guard trimmed.hasPrefix("data:") else { continue }
+            let payload = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+            guard !payload.isEmpty, let jsonData = payload.data(using: .utf8) else { continue }
+
+            if let event = try? decoder.decode(StreamEvent.self, from: jsonData) {
+                switch event.type {
+                case "delta":
+                    onDelta(event.text ?? "")
+                case "done":
+                    if let resp = try? decoder.decode(ChatResponse.self, from: jsonData) {
+                        onDone(resp)
+                    }
+                case "error":
+                    if let problem = try? decoder.decode(StreamError.self, from: jsonData) {
+                        throw LUMIError.from(
+                            code: problem.code ?? "upstream_error",
+                            httpStatus: 502,
+                            message: problem.message ?? "",
+                            retryAfter: nil
+                        )
+                    }
+                default:
+                    break
+                }
+            }
+        }
+    }
+
+    /// SSE 事件的最小载体（只关心 type 与 delta 的 text）。
+    private struct StreamEvent: Decodable, Sendable {
+        let type: String
+        let text: String?
+    }
+
+    private struct StreamError: Decodable, Sendable {
+        let code: String?
+        let message: String?
+    }
+
     /// 切换会话所属人格（不合并人格，只是换一个角色继续聊）。
     func switchCharacter(
         conversationID: String,

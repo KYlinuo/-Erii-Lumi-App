@@ -31,6 +31,8 @@ class ChatRequest(BaseModel):
     # v0.3：图片 / 语音消息（先 PUT /media 上传，再把 media_id 带过来）
     media_id: str | None = Field(default=None, max_length=64)
     kind: Literal["text", "image", "audio"] = "text"
+    # v2.0：请求流式输出（SSE）。缺省 false，走一次性 JSON 返回
+    stream: bool = False
 
 
 class ChatResponse(BaseModel):

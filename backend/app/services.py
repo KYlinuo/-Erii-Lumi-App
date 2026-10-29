@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select
@@ -27,7 +28,7 @@ from app.config import get_settings
 from app.errors import RequestIdConflict
 from app.identity import get_or_create_user
 from app.llm import LLMMessage, LLMResult, ProviderError
-from app.llm.errors import ProviderNotConfigured
+from app.llm.errors import ProviderBadResponse, ProviderNotConfigured
 from app.llm.factory import get_provider
 from app.llm.retry import generate_with_retry
 from app.models import Conversation, Message
@@ -429,6 +430,150 @@ async def send_message(
         "character_id": conv.character_id,
         "conv_seq": assistant_msg.conv_seq,
         "is_mock": (result.model or "").startswith("mock-"),
+        "idempotent_replay": False,
+    }
+
+
+async def send_message_stream(
+    db: Session,
+    conversation_id: str | None,
+    user_text: str,
+    *,
+    character_key: str | None = None,
+    device_id: str | None = None,
+    request_id: str | None = None,
+    client_ts: datetime | None = None,
+    user_id: str | None = None,
+    media_id: str | None = None,
+    kind: str = "text",
+):
+    """send_message 的流式版本：逐个产出正文片段，最终 yield 元数据字典。
+
+    产出协议（由路由层转成 SSE）：
+      yield {"type": "delta", "text": "..."}   —— 正文增量
+      yield {"type": "done", ...}             —— 与 ChatResponse 字段一致的收尾
+    中途抛 ProviderError 时，路由层负责把错误写入用户消息并返回。
+    """
+    settings = get_settings()
+    user = get_or_create_user(db, user_id)
+    conv = get_or_create_conversation(
+        db,
+        conversation_id,
+        user_id=user.id,
+        character_key=character_key,
+        device_id=device_id,
+    )
+
+    # 幂等重放：直接一次性吐完整内容
+    if request_id:
+        replay = _find_previous_reply(db, conv.id, request_id)
+        if replay is not None:
+            yield {"type": "delta", "text": replay["reply"]}
+            yield {"type": "done", **replay}
+            return
+
+        previous = find_message_by_request_id(db, request_id)
+        if previous is not None and previous.conversation_id != conv.id:
+            raise RequestIdConflict()
+        reused_user_message = previous
+    else:
+        reused_user_message = None
+
+    character = personas.get_character(db, id=conv.character_id) or personas.resolve_character(
+        db, character_key
+    )
+
+    if reused_user_message is not None:
+        _maybe_update_title(db, conv, user_text)
+        reused_user_message.content = user_text
+        reused_user_message.status = "ok"
+        reused_user_message.error_code = None
+        reused_user_message.client_ts = client_ts
+        user_msg = reused_user_message
+        db.commit()
+    else:
+        _maybe_update_title(db, conv, user_text)
+        user_msg = append_message(
+            db,
+            conv.id,
+            "user",
+            user_text,
+            request_id=request_id,
+            client_ts=client_ts,
+            media_id=media_id,
+            kind=kind,
+        )
+        db.commit()
+
+    if settings.memory_auto_extract:
+        try:
+            saved = memory_mod.ingest_user_message(
+                db,
+                user_id=user.id,
+                character_id=character.id,
+                message_id=user_msg.id,
+                user_text=user_text,
+            )
+            if saved:
+                db.commit()
+        except Exception:  # noqa: BLE001
+            logger.exception("memory ingestion failed, rolled back")
+            db.rollback()
+
+    provider = get_provider()
+    if not provider.is_configured():
+        raise ProviderNotConfigured()
+
+    context = _build_context(
+        db,
+        conversation_id=conv.id,
+        user_text=user_text,
+        character=character,
+        exclude_message_id=user_msg.id,
+    )
+
+    chunks: list[str] = []
+    started = time.perf_counter()
+    try:
+        async for piece in provider.chat_stream(context):
+            chunks.append(piece)
+            yield {"type": "delta", "text": piece}
+    except ProviderError:
+        user_msg.status = "error"
+        try:
+            db.commit()
+        except Exception:  # noqa: BLE001
+            db.rollback()
+        raise
+
+    content = "".join(chunks).strip()
+    if not content:
+        raise ProviderBadResponse(detail="流式上游返回了空内容。")
+
+    latency_ms = int((time.perf_counter() - started) * 1000)
+    assistant_msg = append_message(
+        db,
+        conv.id,
+        "assistant",
+        content,
+        model=provider.model,
+        latency_ms=latency_ms,
+        request_id=reply_request_id(request_id) if request_id else None,
+    )
+    conv.updated_at = now()
+    db.commit()
+
+    yield {
+        "type": "done",
+        "conversation_id": conv.id,
+        "user_message_id": user_msg.id,
+        "assistant_message_id": assistant_msg.id,
+        "reply": content,
+        "model": provider.model,
+        "latency_ms": latency_ms,
+        "character_id": conv.character_id,
+        "conv_seq": assistant_msg.conv_seq,
+        "is_mock": (provider.model or "").startswith("mock-"),
         "idempotent_replay": False,
     }
 

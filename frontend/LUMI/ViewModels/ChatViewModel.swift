@@ -14,6 +14,9 @@ final class ChatViewModel: ObservableObject {
     /// 当前人格 key（由 AppSession 统一维护）
     @Published var characterKey: String? = "erii"
 
+    /// 流式回复的占位消息 ID（打字机渲染期间使用）
+    private var streamingReplyID: UUID?
+
     private static let conversationKey = "lumi.conversation.id"
     private static let cursorKey = "lumi.sync.cursor"
     private static let proactiveSeenKey = "lumi.proactive.seen"
@@ -250,50 +253,53 @@ final class ChatViewModel: ObservableObject {
             ?? ChatMessage.makeRequestID()
 
         do {
-            let response = try await api.sendMessage(
+            // 流式：先插一条空的「正在输入」助手消息，再逐字填充。
+            streamingReplyID = nil
+            try await api.sendMessageStream(
                 text: text,
                 conversationID: conversationID,
                 requestID: resolvedRequestID,
                 characterKey: characterKey,
                 mediaID: mediaID,
-                kind: kind.rawValue
+                kind: kind.rawValue,
+                onDelta: { [weak self] fragment in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        if self.streamingReplyID == nil {
+                            let placeholder = ChatMessage(role: .assistant, content: "", status: .sending)
+                            self.messages.append(placeholder)
+                            self.streamingReplyID = placeholder.id
+                        }
+                        guard let id = self.streamingReplyID,
+                              let index = self.messages.firstIndex(where: { $0.id == id })
+                        else { return }
+                        self.messages[index].content += fragment
+                    }
+                },
+                onDone: { [weak self] response in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        self.conversationID = response.conversationId
+                        if let index = self.messages.firstIndex(where: { $0.id == messageID }) {
+                            self.messages[index].status = .sent
+                            self.messages[index].requestID = resolvedRequestID
+                            self.messages[index].convSeq = response.convSeq
+                            self.messages[index].serverID = response.userMessageId
+                        }
+                        if let id = self.streamingReplyID,
+                           let index = self.messages.firstIndex(where: { $0.id == id }) {
+                            self.messages[index].content = response.reply
+                            self.messages[index].status = .sent
+                            self.messages[index].serverID = response.assistantMessageId
+                            self.messages[index].convSeq = response.convSeq
+                            self.messages[index].model = response.isMock ? nil : response.model
+                            self.messages[index].isMock = response.isMock
+                        }
+                        self.streamingReplyID = nil
+                        try? await self.persist()
+                    }
+                }
             )
-            conversationID = response.conversationId
-
-            if let index = messages.firstIndex(where: { $0.id == messageID }) {
-                messages[index].status = .sent
-                messages[index].requestID = resolvedRequestID
-                messages[index].convSeq = response.convSeq
-                messages[index].serverID = response.userMessageId
-            }
-
-            // 幂等重放：服务端没有再调模型，直接复用上次的助手消息。
-            // 注意 ChatMessage 是值类型，必须按下标改回数组，否则修改会丢失。
-            if response.idempotentReplay,
-               let index = messages.firstIndex(where: { $0.serverID == response.assistantMessageId }) {
-                messages[index].errorMessage = nil
-                messages[index].status = .sent
-                try await persist()
-                return
-            } else if response.idempotentReplay,
-                      let index = messages.firstIndex(where: { $0.role == .assistant && $0.content == response.reply }) {
-                // 本地没有服务端 ID（老数据）时，按内容兜底去重
-                messages[index].status = .sent
-                try await persist()
-                return
-            }
-
-            let reply = ChatMessage(
-                role: .assistant,
-                content: response.reply,
-                // Mock 的模型名不该当作"模型标签"展示给用户，改由 isMock 角标表达
-                model: response.isMock ? nil : response.model,
-                serverID: response.assistantMessageId,
-                convSeq: response.convSeq,
-                isMock: response.isMock
-            )
-            messages.append(reply)
-            try await persist()
         } catch let error as LUMIError {
             markFailed(messageID: messageID, error: error)
             lastError = error

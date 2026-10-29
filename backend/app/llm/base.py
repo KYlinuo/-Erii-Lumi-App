@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import AsyncIterator
 
 
 @dataclass
@@ -30,6 +31,14 @@ class LLMProvider(ABC):
 
     @abstractmethod
     async def chat(self, messages: list[LLMMessage]) -> LLMResult: ...
+
+    async def chat_stream(self, messages: list[LLMMessage]) -> AsyncIterator[str]:
+        """默认实现：不支持流式的 provider 退化为一次性返回完整内容。
+
+        子类（如 OpenAICompatibleProvider）可覆盖为真正的 SSE 增量。
+        """
+        result = await self.chat(messages)
+        yield result.content
 
     @abstractmethod
     def is_configured(self) -> bool: ...

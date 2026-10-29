@@ -13,6 +13,8 @@ struct ChatRequest: Encodable, Sendable {
     var mediaId: String? = nil
     /// v0.3：消息类型 text / image / audio
     var kind: String = "text"
+    /// v2.0：请求流式输出（SSE）
+    var stream: Bool = false
 
     enum CodingKeys: String, CodingKey {
         case message
@@ -21,6 +23,7 @@ struct ChatRequest: Encodable, Sendable {
         case characterKey = "character_key"
         case mediaId = "media_id"
         case kind
+        case stream
     }
 }
 
