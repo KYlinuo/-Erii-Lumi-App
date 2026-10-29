@@ -7,9 +7,14 @@
 
 | 项 | 值 |
 |----|----|
-| 后端 pytest | **223 项全绿**（`223 passed`，本机 Windows） |
-| iOS 构建 | `0e79411`（阶段 B）已全绿；阶段 C 前端（09/20/11）已推送待编译 |
+| 后端 pytest | **225 项全绿**（`225 passed`，本机 Windows） |
+| iOS 构建 | 阶段 B `0e79411` 已全绿；阶段 C 前端（09/20/11）静态检查通过，但 macOS runner 多次排队被取消，**编译未验证**（GitHub 免费配额问题，非代码问题） |
 | 数据备份 | `backend/data/backups/lumi-20261029-211915.db` |
+
+### 未执行 / 阻塞项（如实标注）
+
+- **阶段 C 前端 iOS 编译**：StyleSettingsView / PromisesView / 反馈菜单 已通过 `scripts/swift_lint.py` 静态检查（无阻断问题），但 macOS runner 排队取消，Xcode 编译未跑完。恢复后手动 dispatch `ios-build.yml` 即可验证。
+- **真机验收**：所有视觉/交互项需装包实测，无 macOS/Xcode 本机环境。
 
 ### 阶段 A/B/C 新增测试
 

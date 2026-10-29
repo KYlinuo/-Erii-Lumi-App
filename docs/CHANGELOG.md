@@ -28,10 +28,11 @@
 - **09 回复风格调节**：`style.py` StyleProfile（长度/提问/表情/动作/称呼）+ `app_settings` 表（迁移 2026102904）+ `GET/POST /api/v1/style`；`compose_system_prompt` 叠加风格约束（不覆盖人格）。iOS `StyleSettingsView`。测试 7 项。
 - **20 约定与待续话题**：`Promise` 模型 + `promises` 表（迁移 2026102905），区分随口一说/明确约定，状态 pending/done/postponed/cancelled/archived；`/api/v1/promises` CRUD。iOS `PromisesView`（小本子「约定」落地）。测试 7 项。
 - **11 反馈纠正**：`POST /api/v1/feedback`（记错了/太长/不像绘梨衣），too_long 自动调短回复长度，反馈记录到 feedback_log；iOS 长按反馈子菜单。测试 4 项。
+- **10 话题接续**：`_build_context` 额外查询 pending_topic，注入「未完成话题」块，隔天自然接续；`compose_system_prompt` 加 topic_block 参数。测试 2 项。
 
 ### 测试累计
 
-后端测试：193 → 199（阶段 A）→ 205（19）→ 212（09）→ 219（20）→ **223（11）**。
+后端测试：193 → 199（阶段 A）→ 205（19）→ 212（09）→ 219（20）→ 223（11）→ **225（10）**。
 
 ### v2.x 累积改动（之前几轮，此处归档记录）
 
