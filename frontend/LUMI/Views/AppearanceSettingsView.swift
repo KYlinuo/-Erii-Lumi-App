@@ -74,9 +74,11 @@ struct AppearanceSettingsView: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             }
 
+            // 注意：PhotosPicker 的 label 闭包在 SDK 里是 @Sendable 的，
+            // 里面**不能**引用 appearance 这类 main actor 隔离属性，否则编译不过。
+            // 所以这里用常量文案；当前是否已有背景，由上方预览缩略图表达。
             PhotosPicker(selection: $backgroundItem, matching: .images) {
-                Label(appearance.backgroundImage == nil ? "选择背景图片" : "更换背景图片",
-                      systemImage: "photo")
+                Label("选择背景图片", systemImage: "photo")
             }
             .onChange(of: backgroundItem) { _, item in
                 guard let item else { return }
