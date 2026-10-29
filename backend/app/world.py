@@ -192,6 +192,16 @@ def simulate_day(
     weights = ("diary", "hobby", "reading", "relationship", "goal")
     created: list[WorldEvent] = []
 
+    # 剧情连贯：把最近一天的事件标题作为「此前剧情」关联进来，
+    # 让时间线不是每天孤立的随机事件，而是有可追溯的上下文。
+    previous_day_start = datetime.combine(day - timedelta(days=1), time.min, tzinfo=timezone.utc)
+    previous_day = timeline(db, character.id, since=previous_day_start, limit=3)
+    references = [
+        {"kind": e.kind, "title": e.title, "content": e.content[:40]}
+        for e in previous_day
+        if e.occurred_at.date() < day
+    ]
+
     for index in range(max_events):
         seed = f"{character.key}|{day.isoformat()}|{index}"
 
@@ -221,7 +231,13 @@ def simulate_day(
                 content=content,
                 occurred_at=occurred,
                 mood=mood,
-                meta={"generated_by": "deterministic-simulator", "day": day.isoformat()},
+                meta={
+                    "generated_by": "deterministic-simulator",
+                    "day": day.isoformat(),
+                    # 关联此前剧情：让 UI 与模型能看到这条事件的前文，
+                    # 避免时间线看起来前后割裂。
+                    "references": references,
+                },
             )
         )
         already.add(content)
