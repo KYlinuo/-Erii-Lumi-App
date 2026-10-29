@@ -11,7 +11,7 @@ struct AppearanceSettingsView: View {
     @State private var cropTarget: CropTarget = .myAvatar
     @State private var emojiText: String = ""
 
-    enum CropTarget { case myAvatar, characterAvatar }
+    enum CropTarget { case myAvatar, characterAvatar, background }
 
     var body: some View {
         Form {
@@ -32,11 +32,14 @@ struct AppearanceSettingsView: View {
         }
         .fullScreenCover(item: $cropRequest) { request in
             ImageCropView(image: request.image) { cropped in
-                let data = cropped.jpegData(compressionQuality: 0.85) ?? Data()
-                if cropTarget == .myAvatar {
+                let data = cropped.jpegData(compressionQuality: 0.9) ?? Data()
+                switch cropTarget {
+                case .myAvatar:
                     appearance.saveMyAvatar(data)
-                } else {
+                case .characterAvatar:
                     appearance.saveCharacterAvatar(data)
+                case .background:
+                    appearance.saveBackground(data)
                 }
             }
         }
@@ -141,12 +144,11 @@ struct AppearanceSettingsView: View {
             }
             .onChange(of: backgroundItem) { _, item in
                 guard let item else { return }
-                // onChange 的闭包不是 MainActor 隔离的，直接 Task{} 会在 Swift 6 下
-                // 报「main actor-isolated property referenced from a Sendable closure」。
-                // 显式 @MainActor 让整个任务留在主 actor 上，拿到 data 后直接落盘。
                 Task { @MainActor in
-                    if let data = try? await item.loadTransferable(type: Data.self) {
-                        appearance.saveBackground(data)
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                       let ui = UIImage(data: data) {
+                        cropTarget = .background
+                        cropRequest = CropImageItem(image: ui)
                     }
                     backgroundItem = nil
                 }

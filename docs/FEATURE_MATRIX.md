@@ -26,7 +26,7 @@
 |---|---|---|---|---|---|
 | 01 | 精简导航（聊天/小本子/我） | 源码完成待构建 | NotebookView / MeView / MainTabs（3 tab） | — | CI 编译 + 真机确认旧入口可找到 |
 | 02 | 原生液态玻璃 | 实现中 | LUMIStyle / 各 View | 需核对 iOS 26 Liquid Glass API | 统一 glass 组件 + 旧系统回退 |
-| 03 | 壁纸适配（裁切/缩放/遮罩/亮度预览） | 实现中 | ChatBackgroundView / AppearanceSettingsView | — | 补裁切缩放 + 安全区/键盘适配 |
+| 03 | 壁纸适配（裁切/缩放/遮罩/亮度预览） | 源码完成待构建 | ChatBackgroundView / AppearanceSettingsView（裁切 + 模糊/亮度/遮罩） | — | CI 编译 + 真机验证横竖屏/键盘 |
 | 04 | 微信式消息操作（左滑引用/双击放大/多选转存） | 实现中 | MessageBubble / ChatView（双击放大已完成） | — | 补左滑引用、多选、转存 |
 | 05 | 阅读位置（不被新消息拉底） | 源码完成待构建 | ChatView（isAtBottom + unreadCount + 新消息提示） | — | CI 编译 + 真机验证 |
 | 06 | 整套主题（樱花白/东京夜雨/深海蓝） | 源码完成待构建 | BubbleTheme（accent/defaultBackground/soundName + 气泡联动） | — | CI 编译 + 真机验证；提示音需音频资源 |
