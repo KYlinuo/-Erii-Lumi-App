@@ -140,8 +140,47 @@ def seed_characters(db: Session) -> int:
             if not row.interests_json or row.interests_json == "[]":
                 row.interests_json = json.dumps(spec.get("interests", []), ensure_ascii=False)
         row.is_active = 1
+    _archive_legacy_characters(db)
     db.flush()
     return created
+
+
+def _archive_legacy_characters(db: Session) -> None:
+    """旧库升级：只保留绘梨衣一个人格在前台。
+
+    v0.x 曾内置 5 套人格（LUMI / 林穗 / 祁鹿 / 沈昼 / 绘梨衣），v2.x 收敛为
+    仅绘梨衣。这里**不删除**任何旧角色数据（历史会话仍能正确引用），只做：
+    1. 把「不在当前 BUILTIN 定义里」的旧角色归档（is_active=0），前台不再出现；
+    2. 保证 BUILTIN 中标注 is_default 的角色成为唯一默认，消除旧库里
+       「lumi 仍是 is_default=1」的不一致。
+    """
+    builtin_keys = {spec["key"] for spec in BUILTIN_CHARACTERS}
+
+    # 1) 归档旧角色
+    legacy = db.execute(
+        select(Character).where(Character.key.notin_(builtin_keys))
+    ).scalars().all()
+    for row in legacy:
+        row.is_active = 0
+        row.is_default = 0
+
+    # 2) 唯一默认：BUILTIN 里 is_default=1 的角色
+    for spec in BUILTIN_CHARACTERS:
+        if not spec.get("is_default"):
+            continue
+        target = db.execute(
+            select(Character).where(Character.key == spec["key"])
+        ).scalar_one_or_none()
+        if target is None:
+            continue
+        target.is_default = 1
+        target.is_active = 1
+        # 其余角色一律不再默认
+        others = db.execute(
+            select(Character).where(Character.key != spec["key"])
+        ).scalars().all()
+        for other in others:
+            other.is_default = 0
 
 
 def ensure_seeded(db: Session) -> None:
