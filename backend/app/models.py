@@ -547,3 +547,33 @@ class AppSetting(Base):
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[str] = mapped_column(Text, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=_utcnow, onupdate=_utcnow)
+
+
+class Promise(Base):
+    """约定 / 待续话题（需求 20）。区分随口一说与明确约定。"""
+
+    __tablename__ = "promises"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    due_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # vague（随口一说）/ confirmed（明确约定）
+    certainty: Mapped[str] = mapped_column(String(16), nullable=False, default="vague")
+    # pending / done / postponed / cancelled / archived
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=_utcnow, onupdate=_utcnow)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "content": self.content,
+            "due_at": _iso(self.due_at),
+            "certainty": self.certainty,
+            "status": self.status,
+            "note": self.note,
+            "created_at": _iso(self.created_at),
+            "updated_at": _iso(self.updated_at),
+        }

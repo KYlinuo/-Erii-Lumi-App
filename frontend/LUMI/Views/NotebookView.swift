@@ -76,8 +76,7 @@ struct NotebookView: View {
         case .diary:
             DiaryView(viewModel: session.diaryViewModel)
         case .promises:
-            placeholder(title: "约定", icon: "checkmark.circle",
-                        text: "她记下的小约定会在这里。等她记起来的时候，会突然跟你提起。")
+            PromisesView()
         case .memories:
             placeholder(title: "共同回忆", icon: "heart.text.square",
                         text: "你们一起经历的片段，会慢慢沉淀成一条时间线。")

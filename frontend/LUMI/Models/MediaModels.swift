@@ -90,3 +90,18 @@ struct StyleProfileDTO: Codable, Sendable {
         case address
     }
 }
+
+/// 一条约定（GET/POST/PATCH /api/v1/promises，需求 20）。
+struct PromiseDTO: Codable, Identifiable, Sendable {
+    let id: String
+    var content: String
+    var dueAt: String?
+    var certainty: String
+    var status: String
+    var note: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, content, certainty, status, note
+        case dueAt = "due_at"
+    }
+}

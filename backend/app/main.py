@@ -26,6 +26,7 @@ from app.routers import (
     media,
     memory as memory_router,
     proactive as proactive_router,
+    promises,
     sync,
     world as world_router,
 )
@@ -125,6 +126,7 @@ def create_app() -> FastAPI:
     app.include_router(world_router.router)
     app.include_router(sync.router)
     app.include_router(proactive_router.router)
+    app.include_router(promises.router)
 
     @app.get("/", tags=["system"])
     def root() -> dict:

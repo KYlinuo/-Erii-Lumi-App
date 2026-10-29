@@ -428,3 +428,28 @@ def _m2026102904(conn: Connection) -> None:
             ")"
         )
     )
+
+
+@migration("2026102905", "约定表 promises")
+def _m2026102905(conn: Connection) -> None:
+    """v2.x：独立保存「约定 / 待续话题」，区分随口一说与明确约定。"""
+    conn.execute(
+        text(
+            "CREATE TABLE IF NOT EXISTS promises ("
+            " id VARCHAR(64) PRIMARY KEY,"
+            " user_id VARCHAR(64),"
+            " content TEXT NOT NULL,"
+            " due_at TIMESTAMP,"
+            " certainty VARCHAR(16) NOT NULL DEFAULT 'vague',"
+            " status VARCHAR(16) NOT NULL DEFAULT 'pending',"
+            " note TEXT NOT NULL DEFAULT '',"
+            " created_at TIMESTAMP,"
+            " updated_at TIMESTAMP"
+            ")"
+        )
+    )
+    conn.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS ix_promises_status ON promises (status, updated_at)"
+        )
+    )

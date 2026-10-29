@@ -514,6 +514,27 @@ final class LUMIAPIClient: Sendable {
         ))
     }
 
+    // MARK: - 约定（需求 20）
+
+    func listPromises(status: String? = nil) async throws -> [PromiseDTO] {
+        let q = status.map { "?status=\($0)" } ?? ""
+        return try await get("/api/v1/promises\(q)")
+    }
+
+    func createPromise(content: String, certainty: String = "vague") async throws -> PromiseDTO {
+        struct Body: Encodable, Sendable { let content: String; let certainty: String }
+        return try await post("/api/v1/promises", body: Body(content: content, certainty: certainty))
+    }
+
+    func updatePromise(id: String, status: String? = nil, content: String? = nil) async throws -> PromiseDTO {
+        struct Body: Encodable, Sendable { let status: String?; let content: String? }
+        return try await patch("/api/v1/promises/\(id)", body: Body(status: status, content: content))
+    }
+
+    func deletePromise(id: String) async throws {
+        try await delete("/api/v1/promises/\(id)")
+    }
+
     // MARK: - 实时通话（LiveKit）
 
     /// 通话能力状态。
