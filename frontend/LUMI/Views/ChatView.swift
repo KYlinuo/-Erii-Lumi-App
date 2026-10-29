@@ -150,7 +150,8 @@ struct ChatView: View {
                             onPreviewImage: { previewImage = PreviewItem(image: $0) },
                             onSpeak: { speak($0) },
                             onStar: { toggleStar($0) },
-                            onZoomText: { zoomedText = $0 }
+                            onZoomText: { zoomedText = $0 },
+                            onFeedback: { type in feedback(type, message: message) }
                         )
                         .id(message.id)
                         .padding(.bottom, meta.spacingBelow)
@@ -303,6 +304,13 @@ struct ChatView: View {
     private func toggleStar(_ message: ChatMessage) {
         let newValue = !message.starred
         viewModel.setStarred(messageID: message.id, starred: newValue)
+    }
+
+    /// 反馈纠正（需求 11）：记错了 / 太长 / 不像绘梨衣。
+    private func feedback(_ type: String, message: ChatMessage) {
+        Task {
+            await viewModel.sendFeedback(type: type, messageID: message.serverID)
+        }
     }
 
     // MARK: - 错误提示条

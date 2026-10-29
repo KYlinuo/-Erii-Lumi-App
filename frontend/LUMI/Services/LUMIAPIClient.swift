@@ -514,6 +514,20 @@ final class LUMIAPIClient: Sendable {
         ))
     }
 
+    /// 反馈纠正（需求 11）：wrong / too_long / not_erii
+    func sendFeedback(type: String, messageID: String? = nil) async throws {
+        struct Body: Encodable, Sendable {
+            let type: String
+            let messageId: String?
+
+            enum CodingKeys: String, CodingKey {
+                case type
+                case messageId = "message_id"
+            }
+        }
+        let _: EmptyResponse = try await post("/api/v1/feedback", body: Body(type: type, messageId: messageID))
+    }
+
     // MARK: - 约定（需求 20）
 
     func listPromises(status: String? = nil) async throws -> [PromiseDTO] {

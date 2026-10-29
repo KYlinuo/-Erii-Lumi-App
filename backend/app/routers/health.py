@@ -259,3 +259,56 @@ def style_set(payload: dict, db: Session = Depends(get_db)):
     style_mod.save_profile(db, profile)
     db.commit()
     return profile.to_dict()
+
+
+@router.post("/feedback", tags=["feedback"], dependencies=[Depends(verify_token)])
+def feedback(payload: dict, db: Session = Depends(get_db)):
+    """用户对某条回复的反馈（需求 11）：记错了 / 太长 / 不像绘梨衣。
+
+    - ``too_long`` 会自动把回复长度调到「简短」；
+    - 所有反馈都记录到 app_settings 的 feedback_log（最近 50 条），
+      供后续风格/记忆微调，不把普通纠正写成人物长期事实。
+    """
+    from app import style as style_mod
+    from app.models import AppSetting
+
+    feedback_type = (payload.get("type") or "").strip()
+    message_id = (payload.get("message_id") or "").strip()
+    note = (payload.get("note") or "").strip()[:200]
+
+    valid = ("wrong", "too_long", "not_erii")
+    if feedback_type not in valid:
+        return JSONResponse(
+            status_code=422,
+            content={"error": {"code": "bad_feedback", "message": "type 必须是 wrong/too_long/not_erii。", "hint": None}},
+        )
+
+    # 动作：太长 → 自动把回复长度调短（可被用户再改回）
+    if feedback_type == "too_long":
+        profile = style_mod.get_profile(db)
+        profile.reply_length = "short"
+        style_mod.save_profile(db, profile)
+
+    # 记录反馈轨迹
+    import json as _json
+
+    row = db.get(AppSetting, "feedback_log")
+    log = []
+    if row is not None:
+        try:
+            log = _json.loads(row.value)
+        except _json.JSONDecodeError:
+            log = []
+    log.append({
+        "type": feedback_type,
+        "message_id": message_id,
+        "note": note,
+        "at": datetime.now(timezone.utc).isoformat(),
+    })
+    if row is None:
+        row = AppSetting(key="feedback_log", value="")
+        db.add(row)
+    row.value = _json.dumps(log[-50:], ensure_ascii=False)
+    db.commit()
+
+    return {"recorded": True, "type": feedback_type, "count": len(log[-50:])}

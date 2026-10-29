@@ -18,6 +18,8 @@ struct MessageBubble: View {
     var onStar: ((ChatMessage) -> Void)?
     /// 双击放大文字（需求 04）
     var onZoomText: ((String) -> Void)?
+    /// 反馈（需求 11）：wrong / too_long / not_erii
+    var onFeedback: ((String) -> Void)?
 
     @ObservedObject private var mediaStore = MediaStore.shared
     @StateObject private var player = AudioPlayer()
@@ -319,6 +321,23 @@ struct MessageBubble: View {
 
         if message.status == .failed, let onRetry {
             Button(action: onRetry) { Label("重新发送", systemImage: "arrow.clockwise") }
+        }
+
+        // 反馈纠正（需求 11）：仅对绘梨衣的文本回复
+        if !message.isFromUser && message.kind == .text {
+            Menu {
+                Button { onFeedback?("wrong") } label: {
+                    Label("记错了", systemImage: "exclamationmark.circle")
+                }
+                Button { onFeedback?("too_long") } label: {
+                    Label("太长", systemImage: "text.line.first.and.arrowtriangle.forward")
+                }
+                Button { onFeedback?("not_erii") } label: {
+                    Label("不像绘梨衣", systemImage: "person.crop.circle.badge.exclamationmark")
+                }
+            } label: {
+                Label("反馈", systemImage: "hand.thumbsup")
+            }
         }
 
         Button(role: .destructive) {

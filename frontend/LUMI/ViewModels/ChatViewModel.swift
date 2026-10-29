@@ -392,6 +392,11 @@ final class ChatViewModel: ObservableObject {
         try await api.synthesize(text: text)
     }
 
+    /// 反馈纠正（需求 11）：记错了 / 太长 / 不像绘梨衣。
+    func sendFeedback(type: String, messageID: String?) async {
+        try? await api.sendFeedback(type: type, messageID: messageID)
+    }
+
     /// 收藏 / 取消收藏一条消息，并同步到服务端。
     func setStarred(messageID: UUID, starred: Bool) {
         guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
