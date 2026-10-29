@@ -25,10 +25,13 @@
 ### 阶段 C（进行中）
 
 - **19 记忆纠错**：`correct_memory()` 支持「记错了（归档）/ 已经变化（superseded）/ 仅本次有效（ephemeral）」三种纠错，保留 source_ref 变更轨迹、自动取消固定；新增 `POST /memory/{id}/correct`。测试 6 项。
+- **09 回复风格调节**：`style.py` StyleProfile（长度/提问/表情/动作/称呼）+ `app_settings` 表（迁移 2026102904）+ `GET/POST /api/v1/style`；`compose_system_prompt` 叠加风格约束（不覆盖人格）。iOS `StyleSettingsView`。测试 7 项。
+- **20 约定与待续话题**：`Promise` 模型 + `promises` 表（迁移 2026102905），区分随口一说/明确约定，状态 pending/done/postponed/cancelled/archived；`/api/v1/promises` CRUD。iOS `PromisesView`（小本子「约定」落地）。测试 7 项。
+- **11 反馈纠正**：`POST /api/v1/feedback`（记错了/太长/不像绘梨衣），too_long 自动调短回复长度，反馈记录到 feedback_log；iOS 长按反馈子菜单。测试 4 项。
 
 ### 测试累计
 
-后端测试：193 → 199（阶段 A）→ **205（阶段 C 的 19）**。
+后端测试：193 → 199（阶段 A）→ 205（19）→ 212（09）→ 219（20）→ **223（11）**。
 
 ### v2.x 累积改动（之前几轮，此处归档记录）
 

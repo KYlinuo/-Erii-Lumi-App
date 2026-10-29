@@ -7,23 +7,20 @@
 
 | 项 | 值 |
 |----|----|
-| 后端 pytest | **205 项全绿**（`205 passed`，本机 Windows） |
-| iOS 构建 | `0e79411`（阶段 B 全部界面改动）GitHub Actions 编译全绿（38 项 XCTest） |
-| 数据备份 | `backend/data/backups/lumi-20261029-211915.db`（SQLite backup API，integrity 通过） |
-| 生产库角色归档 | 已验证：4 旧角色 `is_active=0`、绘梨衣 `is_default=1`、`/characters` 只返回绘梨衣 |
+| 后端 pytest | **223 项全绿**（`223 passed`，本机 Windows） |
+| iOS 构建 | `0e79411`（阶段 B）已全绿；阶段 C 前端（09/20/11）已推送待编译 |
+| 数据备份 | `backend/data/backups/lumi-20261029-211915.db` |
 
 ### 阶段 A/B/C 新增测试
 
 | 文件 | 项数 | 覆盖 |
 |---|---|---|
-| `tests/test_character_archive.py` | 3 | 旧库角色归档、幂等、历史会话数据不丢 |
-| `tests/test_message_reliability.py` | 3 | 连发顺序、幂等重放不重复、重试幂等 |
-| `tests/test_memory_correction.py` | 6 | 记忆纠错（记错了/已变化/仅本次有效）+ 取消固定 |
-
-### 未执行项（如实标注）
-
-- **iOS 真机验收**：无 macOS/Xcode 本机环境，视觉/壁纸/键盘/导航等需装包实测；CI 编译已通过但未真机验证。
-- **阶段 C 剩余（07-12、20）**：尚未实现。
+| `tests/test_character_archive.py` | 3 | 旧库角色归档 |
+| `tests/test_message_reliability.py` | 3 | 连发顺序、幂等重放 |
+| `tests/test_memory_correction.py` | 6 | 记忆纠错（wrong/changed/ephemeral） |
+| `tests/test_style.py` | 7 | 回复风格调节 |
+| `tests/test_promises.py` | 7 | 约定/待续话题 |
+| `tests/test_feedback.py` | 4 | 反馈纠正（记错了/太长/不像绘梨衣） |
 
 ---
 
