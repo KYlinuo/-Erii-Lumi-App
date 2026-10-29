@@ -21,6 +21,13 @@ final class ChatViewModel: ObservableObject {
     private let api: LUMIAPIClient
     private let store: MessageStore
 
+    /// 连发消息时排队的待发送项（需求 07：不吞消息）。
+    private struct PendingMessage {
+        let id: UUID
+        let text: String
+    }
+    private var pendingQueue: [PendingMessage] = []
+
     init(api: LUMIAPIClient, store: MessageStore = MessageStore(directory: MessageStore.defaultDirectory())) {
         self.api = api
         self.store = store
@@ -74,7 +81,7 @@ final class ChatViewModel: ObservableObject {
 
     func send(text: String, quoted: ChatMessage? = nil) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !isSending else { return }
+        guard !trimmed.isEmpty else { return }
 
         var userMessage = ChatMessage(
             role: .user,
@@ -84,9 +91,15 @@ final class ChatViewModel: ObservableObject {
             quotedText: quoted.map { Self.quoteSnippet($0) }
         )
         messages.append(userMessage)
-        isSending = true
         lastError = nil
 
+        // 需求 07：上一条还在生成时，新消息排队而不是丢弃。
+        if isSending {
+            pendingQueue.append(PendingMessage(id: userMessage.id, text: trimmed))
+            return
+        }
+
+        isSending = true
         let messageID = userMessage.id
         Task { [weak self] in
             guard let self else { return }
@@ -236,6 +249,17 @@ final class ChatViewModel: ObservableObject {
         }
     }
 
+    /// 处理排队中的下一条消息（需求 07：不吞消息，逐条按顺序发送）。
+    private func flushPendingQueue() {
+        guard !isSending, !pendingQueue.isEmpty else { return }
+        let next = pendingQueue.removeFirst()
+        isSending = true
+        Task { [weak self] in
+            guard let self else { return }
+            await self.deliver(messageID: next.id, text: next.text)
+        }
+    }
+
     private func deliver(
         messageID: UUID,
         text: String,
@@ -243,7 +267,10 @@ final class ChatViewModel: ObservableObject {
         mediaID: String? = nil,
         kind: MessageKind = .text
     ) async {
-        defer { isSending = false }
+        defer {
+            isSending = false
+            flushPendingQueue()
+        }
 
         let resolvedRequestID = requestID
             ?? messages.first(where: { $0.id == messageID })?.requestID
