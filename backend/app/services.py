@@ -282,12 +282,30 @@ def _build_context(
     memory_mod.touch_recall(db, memories)
     world_block = world_mod.recent_context(db, character.id, limit=3) if character.id else ""
 
+    # 需求 10：未完成话题 / 待续话题——隔天聊天时自然接续，
+    # 不重复问候、不把已经聊完的事当新话题。
+    pending_topics = memory_mod.query_memories(
+        db,
+        character_id=character.id,
+        scopes=["pending_topic"],
+        limit=3,
+    )
+    topic_block = ""
+    if pending_topics:
+        items = "\n".join(f"- {m.content}" for m in pending_topics)
+        topic_block = (
+            "【你们还没聊完的话题】\n"
+            + items
+            + "\n（如果和当前对话相关，可以自然接续；对方说换个话题就放下。）"
+        )
+
     system_text = personas.compose_system_prompt(
         character,
         memory_block=memory_mod.prompt_block(memories),
         world_block=world_block,
         current_time=_local_time_text(),
         style_block=style_mod.get_profile(db).to_prompt(),
+        topic_block=topic_block,
     )
 
     return [
