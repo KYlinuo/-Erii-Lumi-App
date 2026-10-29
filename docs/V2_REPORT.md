@@ -120,7 +120,10 @@
 
 | 项 | 结果 |
 |---|---|
-| 后端 pytest | **174 项全部通过**（本机 Windows） |
+| 后端 pytest | **174 项全部通过**（本机 Windows + GitHub Actions） |
+| iOS 构建 | ✅ **GitHub Actions macos-15 全流程成功**（提交 `0137df2`） |
+| iOS 单元测试 | ✅ 模拟器上 38 项全绿 |
+| 产物 | `LUMI-2.0.0.ipa` 562,373 字节，arm64，未签名 |
 | Swift 语法检查 | `scripts/swift_lint.py` 通过（91 个类型） |
 | iOS 编译 | GitHub Actions `macos-15`，XcodeGen → `xcodebuild test` → 归档 → 打 IPA |
 | 产物 | `LUMI-unsigned.ipa`（arm64、未签名），可在 Actions 的 Artifacts 下载 |
