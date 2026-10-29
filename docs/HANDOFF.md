@@ -1,3 +1,52 @@
+# 绘梨衣 App — 交接文档（HANDOFF）
+
+> 最近更新：2026-10-29 晚间 · 当前版本 **v2.0.0** · 分支 `workbuddy-dev`
+> 本文记录当前最新状态，供下一位开发者快速接手。历史 v0.1 记录保留在文末。
+
+## 0. 当前版本快照
+
+| 项 | 值 |
+|---|---|
+| 版本 | v2.0.0（后端 `__version__`），App 显示「绘梨衣」 |
+| 分支 | `workbuddy-dev`，最新提交 `0e79411`（阶段 B） |
+| 后端测试 | **199 项全绿**（本机 Windows） |
+| iOS 构建 | `ccc2bcf` GitHub Actions 编译全绿（阶段 B 的 01/05/04/06） |
+| 数据库 | `backend/data/lumi.db`（WAL），备份 `backend/data/backups/lumi-20261029-211915.db` |
+| 参考包 | 用户提及的 `Erii-App-2.0.1.zip` 未在本机找到，已按最新工程继续 |
+
+## 1. 已完成的阶段
+
+### 阶段 A（审查/备份/迁移/可靠性）— 提交 `98e9d3a`
+- 旧库角色归档迁移（`_archive_legacy_characters`）：4 旧角色 is_active=0 归档，绘梨衣唯一默认
+- 消息可靠性测试（连发顺序/幂等重放）
+
+### 阶段 B（界面 01-06）— 提交 `f0d7ef9`/`ccc2bcf`/`0e79411`
+- 01 精简导航：聊天/小本子/我（NotebookView + MeView）
+- 03 壁纸裁切 + 模糊/亮度/遮罩
+- 04 双击放大文字（ZoomedTextView）
+- 05 阅读位置（新消息提示 + 回底部）
+- 06 整套主题（樱花白/东京夜雨/深海蓝，accent/背景/气泡联动）
+- 02 液态玻璃：用系统材质回退，原生 Liquid Glass 需 iOS 26 SDK（阻塞）
+
+## 2. 未完成 / 阻塞项（详见 docs/FEATURE_MATRIX.md）
+
+- 阶段 C-G 大部分功能（07-36）待推进
+- 外部条件阻塞：LiveKit Server + STT + TTS（实时通话）、视觉模型（图片理解）、iOS 26 SDK（原生 Liquid Glass）、分层立绘素材（动态形象）、桌宠源码（接续）
+
+## 3. 关键约定（接手必读）
+
+- **push 方式**：本机网络代理 8382 会卡 git push，用 URL 内嵌凭证：
+  `git -c credential.helper= push "https://x-access-token:${TOKEN}@github.com/KYlinuo/-Erii-Lumi-App.git" workbuddy-dev`
+- **数据库**：WAL 模式，备份用 SQLite backup API，不能只复制主 db 文件
+- **角色**：前台硬编码只返回绘梨衣；库内旧角色归档（is_active=0）不删除
+- **消息历史接口** `to_dict` 不含 conv_seq（同步游标在 sync 接口）
+- **幂等重放**：第二次请求必须带 conversation_id
+- **凭据**：`.env` 含 DeepSeek key，不提交、不入日志
+
+---
+
+## 附录：历史 v0.1 交接记录（保留追溯）
+
 # Project LUMI v0.1 — 交付交接文档（HANDOFF）
 
 > 生成时间：2026-10-27 · 本文档记录 v0.1 交付基线，供独立审查者（人或 AI）快速接入。
