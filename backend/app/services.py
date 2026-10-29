@@ -567,6 +567,10 @@ async def send_message_stream(
             logger.exception("memory ingestion failed, rolled back")
             db.rollback()
 
+    # 单日预算拦截（与 send_message 保持一致）
+    if usage_mod.check_budget_exceeded(db):
+        raise ProviderBudgetExceeded()
+
     provider = get_provider()
     if not provider.is_configured():
         raise ProviderNotConfigured()
