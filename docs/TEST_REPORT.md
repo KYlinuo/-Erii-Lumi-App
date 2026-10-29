@@ -3,26 +3,27 @@
 > 最新更新：2026-10-29 晚间 · 报告基于**真实执行结果**，未执行项如实标注。
 > 历史版本（v0.1/v0.3）记录保留在文末，供追溯。
 
-## 0. 当前基线（2026-10-29 阶段 A）
+## 0. 当前基线（2026-10-29 深夜 · 阶段 C）
 
 | 项 | 值 |
 |----|----|
-| 后端 pytest | **199 项全绿**（`199 passed`，本机 Windows） |
-| iOS 构建 | 上一轮 `69cba89` GitHub Actions 编译全绿（38 项 XCTest）；阶段 A 仅后端改动，未触发 iOS 构建 |
+| 后端 pytest | **205 项全绿**（`205 passed`，本机 Windows） |
+| iOS 构建 | `0e79411`（阶段 B 全部界面改动）GitHub Actions 编译全绿（38 项 XCTest） |
 | 数据备份 | `backend/data/backups/lumi-20261029-211915.db`（SQLite backup API，integrity 通过） |
 | 生产库角色归档 | 已验证：4 旧角色 `is_active=0`、绘梨衣 `is_default=1`、`/characters` 只返回绘梨衣 |
 
-### 阶段 A 新增测试
+### 阶段 A/B/C 新增测试
 
 | 文件 | 项数 | 覆盖 |
 |---|---|---|
 | `tests/test_character_archive.py` | 3 | 旧库角色归档、幂等、历史会话数据不丢 |
 | `tests/test_message_reliability.py` | 3 | 连发顺序、幂等重放不重复、重试幂等 |
+| `tests/test_memory_correction.py` | 6 | 记忆纠错（记错了/已变化/仅本次有效）+ 取消固定 |
 
 ### 未执行项（如实标注）
 
-- **iOS 编译**：阶段 A 未改 Swift，未触发 iOS 构建；下一阶段（阶段 B）改前端后补。
-- **真机验收**：无 macOS/Xcode 本机环境，视觉/壁纸/键盘等需真机检查项待装包验证。
+- **iOS 真机验收**：无 macOS/Xcode 本机环境，视觉/壁纸/键盘/导航等需装包实测；CI 编译已通过但未真机验证。
+- **阶段 C 剩余（07-12、20）**：尚未实现。
 
 ---
 

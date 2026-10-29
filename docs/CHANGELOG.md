@@ -12,7 +12,23 @@
 - **数据备份**：用 SQLite backup API 生成一致性快照 `backend/data/backups/lumi-20261029-211915.db`（正确处理 WAL，含 24 消息/10 会话/11 记忆/5 角色/25 世界事件）。
 - **旧库角色归档迁移**（`personas.py::_archive_legacy_characters`）：v0.x 的 5 套人格收敛为仅绘梨衣——旧角色 `is_active=0` 归档（不删除，历史会话仍可引用），绘梨衣成为唯一 `is_default=1`。修复了旧库「lumi 仍是默认」的数据不一致。
 - **消息可靠性测试**（`tests/test_message_reliability.py`）：连发顺序、幂等重放不重复、重试幂等。
-- 后端测试从 193 → **199 项全绿**。
+
+### 阶段 B（界面 01-06）
+
+- **01 精简导航**：主入口收敛为「聊天 / 小本子 / 我」三个 tab。`NotebookView` 聚合人物/记忆/日记/约定/回忆（分段切换），`MeView` 聚合设置/外观/模型/关于。
+- **03 壁纸适配**：背景选择走 `ImageCropView` 裁切，保留模糊/亮度/遮罩调节与预览。
+- **04 双击放大文字**：文本气泡双击 → `ZoomedTextView`（大字/字号调节/复制）。左滑引用因需 List 渲染暂用长按菜单替代。
+- **05 阅读位置**：底部 marker 检测 `isAtBottom`，浏览历史不被新消息拉底，显示「N 条新消息」提示，点击回底部。
+- **06 整套主题**：`BubbleTheme` 扩展 accent/defaultBackground/soundName，主题名对齐「樱花白 / 东京夜雨 / 深海蓝」（rawValue 不变，兼容旧数据），背景/气泡/输入栏联动。
+- **02 原生液态玻璃**：用系统材质（`.ultraThinMaterial`）回退；原生 Liquid Glass 需 iOS 26 SDK，当前 CI 为 Xcode 16.4（iOS 18.5），如实标注阻塞。
+
+### 阶段 C（进行中）
+
+- **19 记忆纠错**：`correct_memory()` 支持「记错了（归档）/ 已经变化（superseded）/ 仅本次有效（ephemeral）」三种纠错，保留 source_ref 变更轨迹、自动取消固定；新增 `POST /memory/{id}/correct`。测试 6 项。
+
+### 测试累计
+
+后端测试：193 → 199（阶段 A）→ **205（阶段 C 的 19）**。
 
 ### v2.x 累积改动（之前几轮，此处归档记录）
 
