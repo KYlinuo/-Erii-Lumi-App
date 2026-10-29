@@ -85,3 +85,14 @@ class ProviderBadResponse(ProviderError):
 
     def __init__(self, detail: str | None = "上游响应结构与 OpenAI 兼容格式不一致。") -> None:
         super().__init__(self.message, detail)
+
+
+class ProviderBudgetExceeded(ProviderError):
+    """单日 token 预算已用尽——停止新增费用，而不是悄悄继续烧钱。"""
+
+    code = "budget_exceeded"
+    http_status = 429
+    message = "今天的额度已经用完啦，明天再来吧。"
+
+    def __init__(self, detail: str | None = "单日 token 预算已达上限，历史记录仍可查看。") -> None:
+        super().__init__(self.message, detail)

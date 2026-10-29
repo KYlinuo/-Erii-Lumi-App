@@ -25,6 +25,8 @@ enum LUMIError: LocalizedError, Sendable, Equatable {
     case requestIdConflict
     /// 当前设备令牌缺少某个 scope
     case forbidden
+    /// 单日 token 预算已用尽
+    case budgetExceeded
 
     /// 面向用户的中文提示（直接展示在聊天气泡或提示条上）。
     var userMessage: String {
@@ -68,6 +70,8 @@ enum LUMIError: LocalizedError, Sendable, Equatable {
             return "这条消息的编号已被用于其他会话，请重新发送。"
         case .forbidden:
             return "当前设备权限不足，请重新注册设备。"
+        case .budgetExceeded:
+            return "今天的额度已经用完啦，明天再来吧。"
         }
     }
 
@@ -100,7 +104,8 @@ enum LUMIError: LocalizedError, Sendable, Equatable {
              .upstreamBadResponse, .emptyReply, .rateLimited:
             return true
         case .unauthorized, .providerNotConfigured, .upstreamUnauthorized,
-             .invalidBaseURL, .decodingFailure, .requestIdConflict, .forbidden:
+             .invalidBaseURL, .decodingFailure, .requestIdConflict, .forbidden,
+             .budgetExceeded:
             return false
         case .serverUnreachable(let status):
             return status >= 500
@@ -151,6 +156,8 @@ enum LUMIError: LocalizedError, Sendable, Equatable {
             return .requestIdConflict
         case "forbidden":
             return .forbidden
+        case "budget_exceeded":
+            return .budgetExceeded
         default:
             return .serverUnknown(code: code, httpStatus: httpStatus, message: message)
         }

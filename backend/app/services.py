@@ -24,12 +24,13 @@ from sqlalchemy.orm import Session
 from app import memory as memory_mod
 from app import personas
 from app import style as style_mod
+from app import usage as usage_mod
 from app import world as world_mod
 from app.config import get_settings
 from app.errors import RequestIdConflict
 from app.identity import get_or_create_user
 from app.llm import LLMMessage, LLMResult, ProviderError
-from app.llm.errors import ProviderBadResponse, ProviderNotConfigured
+from app.llm.errors import ProviderBadResponse, ProviderBudgetExceeded, ProviderNotConfigured
 from app.llm.factory import get_provider
 from app.llm.retry import generate_with_retry
 from app.models import Conversation, Message
@@ -420,7 +421,12 @@ async def send_message(
             logger.exception("memory ingestion failed, rolled back")
             db.rollback()
 
-    # ---- 4. 明确拒绝「无 Key 还编造回复」----
+    # ---- 4. 单日预算拦截（验收场景 12）：超限停止新增费用 ----
+    # 放在「无 Key 拒绝」之前：预算超限是费用控制，与 provider 是否配置无关。
+    if usage_mod.check_budget_exceeded(db):
+        raise ProviderBudgetExceeded()
+
+    # ---- 4.5 明确拒绝「无 Key 还编造回复」----
     provider = get_provider()
     if not provider.is_configured():
         raise ProviderNotConfigured()

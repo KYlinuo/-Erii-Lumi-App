@@ -20,6 +20,29 @@ def _day_start(day: datetime) -> datetime:
     return day.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
+def check_budget_exceeded(db: Session, *, now: datetime | None = None) -> bool:
+    """单日 token 预算是否已用尽（发送前拦截用，验收场景 12）。
+
+    只统计 assistant 消息（真实模型消耗），覆盖并发/重试——因为每次调用
+    都在写库前实时求和，不存在「并发窗口内漏算」的问题。
+    """
+    settings = get_settings()
+    budget = max(0, settings.daily_token_budget)
+    if not budget:
+        return False  # 0 表示不限制
+
+    now = now or datetime.now(timezone.utc)
+    today = _day_start(now)
+    row = db.execute(
+        select(
+            func.coalesce(func.sum(Message.tokens_prompt), 0),
+            func.coalesce(func.sum(Message.tokens_completion), 0),
+        ).where(Message.created_at >= today, Message.role == "assistant")
+    ).one()
+    used = int(row[0] or 0) + int(row[1] or 0)
+    return used >= budget
+
+
 def summarize(db: Session, *, now: datetime | None = None, days: int = 7) -> dict:
     settings = get_settings()
     now = now or datetime.now(timezone.utc)
