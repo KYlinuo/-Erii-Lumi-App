@@ -182,11 +182,11 @@ struct ProfileView: View {
                 }
                 .onChange(of: characterAvatarItem) { _, item in
                     guard let item else { return }
-                    Task {
+                    Task { @MainActor in
                         if let data = try? await item.loadTransferable(type: Data.self) {
-                            await MainActor.run { appearance.saveCharacterAvatar(data) }
+                            appearance.saveCharacterAvatar(data)
                         }
-                        await MainActor.run { characterAvatarItem = nil }
+                        characterAvatarItem = nil
                     }
                 }
             }

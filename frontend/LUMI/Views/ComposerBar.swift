@@ -115,11 +115,11 @@ struct ComposerBar: View {
         }
         .onChange(of: pickedItem) { _, newValue in
             guard let newValue else { return }
-            Task {
+            Task { @MainActor in
                 if let data = try? await newValue.loadTransferable(type: Data.self) {
-                    await MainActor.run { onImage(data) }
+                    onImage(data)
                 }
-                await MainActor.run { pickedItem = nil }
+                pickedItem = nil
             }
         }
     }

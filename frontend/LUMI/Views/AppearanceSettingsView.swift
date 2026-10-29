@@ -80,11 +80,14 @@ struct AppearanceSettingsView: View {
             }
             .onChange(of: backgroundItem) { _, item in
                 guard let item else { return }
-                Task {
+                // onChange 的闭包不是 MainActor 隔离的，直接 Task{} 会在 Swift 6 下
+                // 报「main actor-isolated property referenced from a Sendable closure」。
+                // 显式 @MainActor 让整个任务留在主 actor 上，拿到 data 后直接落盘。
+                Task { @MainActor in
                     if let data = try? await item.loadTransferable(type: Data.self) {
-                        await MainActor.run { appearance.saveBackground(data) }
+                        appearance.saveBackground(data)
                     }
-                    await MainActor.run { backgroundItem = nil }
+                    backgroundItem = nil
                 }
             }
 
@@ -161,11 +164,13 @@ struct AppearanceSettingsView: View {
             }
             .onChange(of: item.wrappedValue) { _, newValue in
                 guard let newValue else { return }
-                Task {
+                // 同背景图：闭包不在 MainActor 上，必须显式标注，
+                // 否则 Binding 与 onSave 都会被判成跨 actor 捕获。
+                Task { @MainActor in
                     if let data = try? await newValue.loadTransferable(type: Data.self) {
-                        await MainActor.run { onSave(data) }
+                        onSave(data)
                     }
-                    await MainActor.run { item.wrappedValue = nil }
+                    item.wrappedValue = nil
                 }
             }
 
