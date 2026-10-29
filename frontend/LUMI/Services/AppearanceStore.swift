@@ -189,7 +189,7 @@ struct ChatBackgroundView: View {
                         .brightness(appearance.backgroundBrightness)
                 } else {
                     LinearGradient(
-                        colors: defaultGradient,
+                        colors: appearance.theme.defaultBackground,
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -199,20 +199,6 @@ struct ChatBackgroundView: View {
                 Color.black.opacity(appearance.backgroundDim)
             }
             .ignoresSafeArea()
-        }
-    }
-
-    private var defaultGradient: [Color] {
-        switch appearance.theme {
-        case .sakura:
-            return [Color(red: 0.13, green: 0.11, blue: 0.20),
-                    Color(red: 0.20, green: 0.15, blue: 0.26)]
-        case .midnight:
-            return [Color(red: 0.05, green: 0.06, blue: 0.13),
-                    Color(red: 0.10, green: 0.09, blue: 0.22)]
-        case .crystal:
-            return [Color(red: 0.09, green: 0.11, blue: 0.18),
-                    Color(red: 0.14, green: 0.16, blue: 0.26)]
         }
     }
 }

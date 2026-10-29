@@ -43,7 +43,8 @@ struct ChatView: View {
                 },
                 onVoice: { url, duration in
                     viewModel.sendVoice(fileURL: url, duration: duration)
-                }
+                },
+                accent: appearance.theme.accent
             )
         }
         .background(ChatBackgroundView(appearance: appearance))

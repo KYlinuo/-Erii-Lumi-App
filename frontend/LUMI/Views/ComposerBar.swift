@@ -13,6 +13,8 @@ struct ComposerBar: View {
     var onImage: (Data) -> Void = { _ in }
     /// 录音结束后回调临时文件与时长
     var onVoice: (URL, TimeInterval) -> Void = { _, _ in }
+    /// 强调色（跟随当前主题）
+    var accent: Color = Color(red: 0.72, green: 0.60, blue: 1.0)
 
     @FocusState private var focused: Bool
     @StateObject private var recorder = AudioRecorder()
@@ -93,7 +95,7 @@ struct ComposerBar: View {
                     } label: {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 29))
-                            .foregroundStyle(Color(red: 0.72, green: 0.60, blue: 1.0))
+                            .foregroundStyle(accent)
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("sendButton")
@@ -103,7 +105,7 @@ struct ComposerBar: View {
                     } label: {
                         Image(systemName: recorder.isRecording ? "stop.circle.fill" : "mic.circle.fill")
                             .font(.system(size: 29))
-                            .foregroundStyle(recorder.isRecording ? .red : .white.opacity(0.55))
+                            .foregroundStyle(recorder.isRecording ? .red : accent.opacity(0.7))
                     }
                     .buttonStyle(.plain)
                     .disabled(isSending)

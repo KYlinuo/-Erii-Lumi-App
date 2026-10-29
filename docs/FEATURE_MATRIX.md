@@ -29,7 +29,7 @@
 | 03 | 壁纸适配（裁切/缩放/遮罩/亮度预览） | 实现中 | ChatBackgroundView / AppearanceSettingsView | — | 补裁切缩放 + 安全区/键盘适配 |
 | 04 | 微信式消息操作（左滑引用/双击放大/多选转存） | 实现中 | MessageBubble / ChatView（双击放大已完成） | — | 补左滑引用、多选、转存 |
 | 05 | 阅读位置（不被新消息拉底） | 源码完成待构建 | ChatView（isAtBottom + unreadCount + 新消息提示） | — | CI 编译 + 真机验证 |
-| 06 | 整套主题（樱花白/东京夜雨/深海蓝） | 实现中 | BubbleTheme（当前 3 套气泡） | — | 补完整主题（背景/强调色/提示音）+ 单项覆盖 |
+| 06 | 整套主题（樱花白/东京夜雨/深海蓝） | 源码完成待构建 | BubbleTheme（accent/defaultBackground/soundName + 气泡联动） | — | CI 编译 + 真机验证；提示音需音频资源 |
 
 ## 07–12 聊天质量（阶段 C）
 
