@@ -120,15 +120,24 @@
 
 | 项 | 结果 |
 |---|---|
-| 后端 pytest | **174 项全部通过**（本机 Windows + GitHub Actions） |
-| iOS 构建 | ✅ **GitHub Actions macos-15 全流程成功**（提交 `0137df2`） |
+| 后端 pytest | **189 项全部通过**（本机 Windows + GitHub Actions） |
+| iOS 构建 | ✅ **GitHub Actions macos-15 全流程成功**（最新 `7e76349`） |
 | iOS 单元测试 | ✅ 模拟器上 38 项全绿 |
-| 产物 | `LUMI-2.0.0.ipa` 562,373 字节，arm64，未签名 |
-| Swift 语法检查 | `scripts/swift_lint.py` 通过（91 个类型） |
+| 产物 | `LUMI-2.0.0.ipa` 568,086 字节，arm64，未签名 |
+| Swift 语法检查 | `scripts/swift_lint.py` 通过 |
 | iOS 编译 | GitHub Actions `macos-15`，XcodeGen → `xcodebuild test` → 归档 → 打 IPA |
-| 产物 | `LUMI-unsigned.ipa`（arm64、未签名），可在 Actions 的 Artifacts 下载 |
 
-> 本轮提交后 CI 仍在排队，最终构建结论以 Actions 页面为准；本文档不预先宣称通过。
+### 本轮（2026-10-29 白天）新增并全部验证通过
+
+| 项 | 内容 |
+|---|---|
+| 流式输出（SSE） | `POST /chat?stream=true` 返回 `delta`/`done`/`error`；iOS 用 URLSession.bytes 逐行解析，打字机逐字渲染 |
+| 记忆事实纠正 | 唯一事实槽位（名字/职业/单位/住址/年龄）新值自动归档旧值，避免「我搬家了」与旧地址矛盾并存 |
+| 记忆语义检索 | `GET /memory?query=` 按相关性+强度检索 |
+| 虚构日记连贯 | `simulate_day` 生成当天事件带 `meta.references`（此前剧情），时间线可追溯 |
+| 性能指标 | `GET /api/v1/metrics`：记忆检索耗时（avg/p50/p95）+ 模型回复延迟 |
+
+> 提交链：`781f1ea`（流式）→ `7e76349`（记忆纠正+流式闭包修复）→ `2c58d1c`（日记连贯）→ `659e007`（指标）。
 
 ---
 
@@ -141,10 +150,14 @@
 | 头像/背景自定义 | ✅ 已做 | 未做裁切（只做了等比缩放） |
 | App 图标多风格切换 | ❌ 未做 | 需要多套 `.appiconset` + `setAlternateIconName` |
 | 原生 Liquid Glass API | ❌ 未做 | 需 Xcode 26 / iOS 26 SDK，当前 CI 为 16.4 |
-| DeepSeek 真实接入 | ⚠️ 接口就绪，未接 | 后端是 OpenAI 兼容适配器，填 `LUMI_API_KEY` 即可；**流式输出未做** |
+| DeepSeek 真实接入 | ⚠️ 接口就绪，未接 | 后端是 OpenAI 兼容适配器，填 `LUMI_API_KEY` 即可；**流式输出已完成** |
+| 流式输出（SSE） | ✅ 已做 | `POST /chat?stream=true`，iOS 打字机逐字渲染 |
 | 记忆检索权重/遗忘曲线 | ✅ 已做 | 衰减+显著性+可信度+复述+相关性；缺真正的向量语义检索 |
+| 记忆事实变化纠正 | ✅ 已做 | 唯一事实槽位自动归档旧值 |
 | Token 用量与预算 | ✅ 已做 | `/api/v1/usage`；**预算超限时尚未强制拦截请求** |
+| 性能指标 | ✅ 已做 | `/api/v1/metrics`：记忆检索耗时 + 模型延迟 |
 | Context Builder 分桶预算 | ⚠️ 部分 | 有近期窗口与记忆条数上限，未做按主题压缩与摘要去重 |
+| 虚构日记时间线连贯 | ✅ 已做 | `meta.references` 关联此前剧情 |
 | 实时语音通话 / 视频通话 | ❌ 未做 | 需要 WebRTC/LiveKit（涉及第三方服务，未擅自引入） |
 | 角色实时渲染（眨眼/口型） | ❌ 未做 | 缺少分层立绘素材；接口未设计 |
 
@@ -152,9 +165,9 @@
 
 ## 七、下一阶段建议
 
-1. **先确认真机效果**：装新 IPA，确认黑边消失、字号回归正常 —— 这是所有后续 UI 工作的前提。
-2. 把 `MessageBubble` 拆成 `BubbleStyle` 参数 + 三个主题预设（只改样式，不复制组件）。
-3. 聊天交互补齐：长按菜单（复制/引用/删除）、引用条、图片全屏预览。
-4. 头像与背景自定义（PhotosPicker + 简单裁切 + 本地文件存储）。
-5. 填 DeepSeek Key → 打通真实回复 → 再做流式（SSE）。
-6. 记忆检索加时间衰减与复述加权，并补 Context Builder 的 Token 预算。
+1. **确认真机效果**：装新 IPA，确认黑边消失、字号回归正常。
+2. 填 DeepSeek Key → 打通真实回复（流式已经就位，填 key 即可享受打字机效果）。
+3. 头像裁切、App 图标多风格（`setAlternateIconName`）。
+4. Context Builder 分桶预算：按主题压缩较早对话、摘要去重，进一步省 token。
+5. 实时语音/视频通话：需先确认是否接受 WebRTC/LiveKit 第三方服务再动工。
+6. 记忆语义检索升级为 embedding 向量（需引入向量模型/数据库，评估成本后再定）。

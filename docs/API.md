@@ -292,3 +292,44 @@ POST /api/v1/chat
 - `message` 可为空：`audio` 时由服务端转写补全正文，`image` 时补一句
   「（用户发来一张图片）」（没有视觉模型时不假装能看图）；
 - 消息落库带 `kind` 与 `media_id`，跨设备同步时另一端按同样方式渲染。
+
+
+---
+
+# v2.0 新增接口（流式 / 记忆纠正 / 指标）
+
+## 流式聊天（SSE）
+
+```json
+POST /api/v1/chat
+{"message": "晚上好", "stream": true}
+```
+
+响应为 `text/event-stream`，逐行 `data: {...}`：
+
+| 事件 | 字段 | 说明 |
+|---|---|---|
+| `delta` | `{"type":"delta","text":"..."}` | 正文增量（打字机逐字） |
+| `done` | `{"type":"done", ...ChatResponse字段}` | 收尾元数据（与一次性返回一致） |
+| `error` | `{"type":"error","code":...,"message":...}` | 流式中途出错 |
+
+`stream=false`（缺省）仍走一次性 JSON，两者完全等价、共享同一套幂等与落库。
+
+## 记忆语义检索 + 事实纠正
+
+- `GET /api/v1/memory?query=香菜`：按相关性+强度检索（字符二元组轻量近似）
+- 唯一事实槽位（名字/职业/单位/住址/年龄）新值写入时**自动归档旧值**，
+  避免「我搬家了」和旧的「住在城西」长期并存矛盾。偏好类不互删。
+
+## 运行时指标
+
+`GET /api/v1/metrics`（需鉴权）：
+
+```json
+{
+  "memory_retrieval": {"count": 42, "avg_ms": 1.2, "p50_ms": 0.9, "p95_ms": 2.1, "max_ms": 5.0},
+  "model_reply_latency": {"count": 42, "avg_ms": 812.0, "max_ms": 2400}
+}
+```
+
+样本仅在进程生命周期内有效；模型延迟来自 messages 表持久记录。
