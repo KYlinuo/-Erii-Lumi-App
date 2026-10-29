@@ -63,6 +63,17 @@ App 已经**只以「绘梨衣」为唯一角色**运行，DeepSeek 已真实接
 | 语音消息（录音/播放/ASR 接口） | ✅ 录音播放可用，ASR/TTS 待接 |
 | 实时通话（LiveKit） | ⚠️ 代码与 token 签发就绪，缺 LiveKit Server + STT/TTS |
 | 性能指标 | ✅ `GET /api/v1/metrics` |
+| 聊天记录搜索 | ✅ 长按放大镜 + `GET /conversations/{id}/search` |
+| 记忆搜索 + 固定 | ✅ 记忆页搜索 + 左滑固定（pinned，不受遗忘衰减） |
+| 消息收藏 | ✅ 长按菜单「收藏」+ `star` 接口 |
+| 头像裁切 | ✅ ImageCropView 拖动/缩放/圆形框 |
+| 数据导出 | ✅ `GET /api/v1/export` 全量导出聊天+记忆 JSON |
+| 清除数据 | ✅ `POST /data/wipe`（需 confirm=绘梨衣） |
+| 图片理解 | ⚠️ 视觉接口预留（vision.py），DeepSeek 无视觉，默认降级 |
+| 语音回复朗读 | ✅ 长按菜单「朗读」（/speech/tts） |
+| 应用锁（Face ID） | ✅ 设置→访问认证→应用锁 |
+| 快捷表情栏可配置 | ✅ 外观页逗号分隔自定义 |
+| 视频影像占位 | ⚠️ 眨眼/呼吸/浮动占位，真实口型需分层立绘 |
 
 ---
 
@@ -70,16 +81,18 @@ App 已经**只以「绘梨衣」为唯一角色**运行，DeepSeek 已真实接
 
 | 项 | 结果 |
 |---|---|
-| 后端 pytest | **188 项全绿**（本机 Windows） |
-| iOS 构建 | 上一轮 `b6da326` 全绿（含 LiveKit SDK 编译、38 项 XCTest） |
-| 本轮 iOS | 本轮前端改动尚未跑 CI，需推送后看 Actions |
+| 后端 pytest | **193 项全绿**（本机 Windows） |
+| 后端接口实测 | 收藏 200、导出 10 会话 + 11 记忆、真实对话 is_mock=false |
+| iOS 构建 | 上一轮 `849fa00` 全绿（含 LiveKit SDK、38 项 XCTest） |
+| 本轮 iOS | 前端改动已推送，等 Actions 编译验证 |
 
 ---
 
 ## 四、已知问题 / 诚实边界
 
-1. **公网未真正上线**：需要你提供服务器 + 域名（见 `deploy/README.md`）。
+1. **公网未真正上线**：需要你提供服务器 + 域名（见 `deploy/README.md`）。当前用 Cloudflare 临时隧道（地址每次重启会变）。
 2. **实时通话未真正跑通**：需要 LiveKit Server（`LUMI_LIVEKIT_URL/KEY/SECRET`）+ STT + TTS 三项凭据。
-3. **iOS 本轮改动未编译验证**：改动需推 CI 后看结果，若失败我会按日志修。
-4. **真机观感未确认**：黑边/背景/全面屏需你装包实测。
-5. **聊天搜索 / 记忆搜索 / 收藏 / Face ID**：尚未实现（P1/P2 计划）。
+3. **图片理解未真正接通**：DeepSeek 无视觉，需另配 `LUMI_VISION_MODEL` + `LUMI_VISION_BASE_URL`（OpenAI 兼容视觉模型）。
+4. **视频通话动态影像为占位**：当前是立绘 + 呼吸/眨眼/浮动动画；真正口型同步、表情变化需要分层立绘素材（眼睛/嘴巴独立图层），接口已预留。
+5. **本轮 iOS 改动未编译验证**：改动需推 CI 后看结果，若失败我会按日志修。
+6. **真机观感未确认**：黑边/背景/全面屏/应用锁需你装包实测。
