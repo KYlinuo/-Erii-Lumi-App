@@ -84,3 +84,36 @@ def usage(days: int = 7, db: Session = Depends(get_db)):
     from app import usage as usage_mod
 
     return usage_mod.summarize(db, days=max(1, min(days, 30)))
+
+
+@router.get("/metrics", tags=["metrics"], dependencies=[Depends(verify_token)])
+def metrics(db: Session = Depends(get_db)):
+    """运行时性能指标：记忆检索耗时、模型回复延迟（来自 messages 表）。
+
+    用于上下文优化的基准测试——记忆检索变慢说明注入过多，
+    模型延迟升高说明窗口太长。
+    """
+    from app import metrics as metrics_mod
+    from app.models import Message
+
+    # 模型延迟：从 assistant 消息的 latency_ms 聚合
+    lat_rows = db.execute(
+        select(
+            func.coalesce(func.avg(Message.latency_ms), 0),
+            func.coalesce(func.max(Message.latency_ms), 0),
+            func.count(Message.id),
+        ).where(Message.role == "assistant", Message.latency_ms.isnot(None))
+    ).one()
+    avg_lat = round(float(lat_rows[0] or 0), 1)
+    max_lat = int(lat_rows[1] or 0)
+    reply_count = int(lat_rows[2] or 0)
+
+    return {
+        "memory_retrieval": metrics_mod.memory_retrieval.snapshot(),
+        "model_reply_latency": {
+            "count": reply_count,
+            "avg_ms": avg_lat,
+            "max_ms": max_lat,
+        },
+        "note": "样本只在进程生命周期内有效，重启清零；延迟来自 messages 表持久记录。",
+    }

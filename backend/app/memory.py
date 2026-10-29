@@ -29,6 +29,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Iterable
@@ -421,6 +422,9 @@ def query_memories(
     query: str | None = None,
 ) -> list[MemoryRecord]:
     """按「当前人格」可见范围检索：用户层记忆 + 该人格自己的关系/虚构记忆。"""
+    from app import metrics
+
+    started = time.perf_counter()
     conditions = []
     if include_shared:
         conditions.append(
@@ -451,6 +455,7 @@ def query_memories(
         candidates = rank_memories(candidates, query)
     if limit:
         candidates = candidates[:limit]
+    metrics.record_memory_retrieval_ms((time.perf_counter() - started) * 1000)
     return candidates
 
 
