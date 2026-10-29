@@ -254,11 +254,14 @@ def compose_system_prompt(
     memory_block: str = "",
     world_block: str = "",
     current_time: str = "",
+    style_block: str = "",
 ) -> str:
     """把人格设定、长期记忆、虚构世界状态组装成一份 system 提示词。
 
     记忆与虚构人生都带明确标注，避免模型把推测当成事实、
     把角色的虚构经历当成用户的真实经历。
+    style_block 是用户可调的回复风格约束（需求 09），叠加在人格之后，
+    不覆盖绘梨衣的核心性格。
     """
     parts = [character.system_prompt or ""]
 
@@ -286,6 +289,8 @@ def compose_system_prompt(
             "\n【你记得的关于用户的事（标「推测」的条目不确定，不要当成事实陈述）】\n"
             + memory_block
         )
+    if style_block:
+        parts.append(style_block)
 
     return "\n".join(parts) + _COMMON_GUARDRAILS
 

@@ -73,3 +73,20 @@ struct CallTokenDTO: Decodable, Sendable {
     let room: String
     let identity: String
 }
+
+/// 回复风格参数（GET/POST /api/v1/style，需求 09）。
+struct StyleProfileDTO: Codable, Sendable {
+    var replyLength: String = "medium"       // short / medium / long
+    var questionFrequency: String = "medium" // low / medium / high
+    var emojiFrequency: String = "medium"    // low / medium / high
+    var actionDescription: Bool = true
+    var address: String = ""
+
+    enum CodingKeys: String, CodingKey {
+        case replyLength = "reply_length"
+        case questionFrequency = "question_frequency"
+        case emojiFrequency = "emoji_frequency"
+        case actionDescription = "action_description"
+        case address
+    }
+}

@@ -231,3 +231,31 @@ def wipe_data(payload: dict, db: Session = Depends(get_db)):
     db.execute(text("DELETE FROM memory_records"))
     db.commit()
     return {"wiped": True, "note": "会话、消息、记忆已清空；用户/设备/角色保留。"}
+
+
+@router.get("/style", tags=["style"], dependencies=[Depends(verify_token)])
+def style_get(db: Session = Depends(get_db)):
+    """读取当前回复风格参数（需求 09）。"""
+    from app import style as style_mod
+
+    return style_mod.get_profile(db).to_dict()
+
+
+@router.post("/style", tags=["style"], dependencies=[Depends(verify_token)])
+def style_set(payload: dict, db: Session = Depends(get_db)):
+    """保存回复风格参数（长度/提问/表情/动作/称呼），带版本号持久化。"""
+    from app import style as style_mod
+
+    profile = style_mod.load_from_json(
+        None
+    )  # 起点默认；用 payload 覆盖，避免未知字段污染
+    for field in ("reply_length", "question_frequency", "emoji_frequency", "address"):
+        if field in payload:
+            setattr(profile, field, str(payload[field]))
+    if "action_description" in payload:
+        profile.action_description = bool(payload["action_description"])
+
+    profile.validate()
+    style_mod.save_profile(db, profile)
+    db.commit()
+    return profile.to_dict()

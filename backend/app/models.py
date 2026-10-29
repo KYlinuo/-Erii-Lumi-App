@@ -537,3 +537,13 @@ class ProactiveMessage(Base):
             "sent_at": _iso(self.sent_at),
             "created_at": _iso(self.created_at),
         }
+
+
+class AppSetting(Base):
+    """应用级 key-value 设置（如回复风格调节）。"""
+
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=_utcnow, onupdate=_utcnow)

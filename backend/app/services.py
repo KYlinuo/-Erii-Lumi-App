@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from app import memory as memory_mod
 from app import personas
+from app import style as style_mod
 from app import world as world_mod
 from app.config import get_settings
 from app.errors import RequestIdConflict
@@ -286,6 +287,7 @@ def _build_context(
         memory_block=memory_mod.prompt_block(memories),
         world_block=world_block,
         current_time=_local_time_text(),
+        style_block=style_mod.get_profile(db).to_prompt(),
     )
 
     return [

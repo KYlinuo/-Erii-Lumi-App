@@ -483,6 +483,37 @@ final class LUMIAPIClient: Sendable {
         try await get("/api/v1/speech/status")
     }
 
+    // MARK: - 回复风格（需求 09）
+
+    func getStyle() async throws -> StyleProfileDTO {
+        try await get("/api/v1/style")
+    }
+
+    func setStyle(_ style: StyleProfileDTO) async throws -> StyleProfileDTO {
+        struct Body: Encodable, Sendable {
+            let replyLength: String
+            let questionFrequency: String
+            let emojiFrequency: String
+            let actionDescription: Bool
+            let address: String
+
+            enum CodingKeys: String, CodingKey {
+                case replyLength = "reply_length"
+                case questionFrequency = "question_frequency"
+                case emojiFrequency = "emoji_frequency"
+                case actionDescription = "action_description"
+                case address
+            }
+        }
+        return try await post("/api/v1/style", body: Body(
+            replyLength: style.replyLength,
+            questionFrequency: style.questionFrequency,
+            emojiFrequency: style.emojiFrequency,
+            actionDescription: style.actionDescription,
+            address: style.address
+        ))
+    }
+
     // MARK: - 实时通话（LiveKit）
 
     /// 通话能力状态。

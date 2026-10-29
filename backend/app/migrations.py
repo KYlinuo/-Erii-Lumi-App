@@ -414,3 +414,17 @@ def _m2026102903(conn: Connection) -> None:
         "ix_messages_starred",
         "CREATE INDEX IF NOT EXISTS ix_messages_starred ON messages (conversation_id, starred)",
     )
+
+
+@migration("2026102904", "应用级设置表 app_settings")
+def _m2026102904(conn: Connection) -> None:
+    """v2.x：回复风格调节等应用级配置的 key-value 持久化。"""
+    conn.execute(
+        text(
+            "CREATE TABLE IF NOT EXISTS app_settings ("
+            " key VARCHAR(64) PRIMARY KEY,"
+            " value TEXT NOT NULL,"
+            " updated_at TIMESTAMP"
+            ")"
+        )
+    )

@@ -66,6 +66,11 @@ struct MeView: View {
             } label: {
                 Label("AI 模型", systemImage: "sparkles")
             }
+            NavigationLink {
+                StyleSettingsView()
+            } label: {
+                Label("回复风格", systemImage: "slider.horizontal.3")
+            }
         }
     }
 
