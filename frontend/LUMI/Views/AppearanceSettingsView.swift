@@ -7,7 +7,7 @@ struct AppearanceSettingsView: View {
     @State private var backgroundItem: PhotosPickerItem?
     @State private var myAvatarItem: PhotosPickerItem?
     @State private var characterAvatarItem: PhotosPickerItem?
-    @State private var cropImage: UIImage?
+    @State private var cropRequest: CropImageItem?
     @State private var cropTarget: CropTarget = .myAvatar
 
     enum CropTarget { case myAvatar, characterAvatar }
@@ -23,25 +23,16 @@ struct AppearanceSettingsView: View {
         .background(LUMIStyle.pageBackground)
         .navigationTitle("外观")
         .navigationBarTitleDisplayMode(.inline)
-        .fullScreenCover(item: $cropImageBinding) {
-            if let cropImage {
-                ImageCropView(image: cropImage) { cropped in
-                    if cropTarget == .myAvatar {
-                        appearance.saveMyAvatar(cropped.jpegData(compressionQuality: 0.85) ?? Data())
-                    } else {
-                        appearance.saveCharacterAvatar(cropped.jpegData(compressionQuality: 0.85) ?? Data())
-                    }
+        .fullScreenCover(item: $cropRequest) { request in
+            ImageCropView(image: request.image) { cropped in
+                let data = cropped.jpegData(compressionQuality: 0.85) ?? Data()
+                if cropTarget == .myAvatar {
+                    appearance.saveMyAvatar(data)
+                } else {
+                    appearance.saveCharacterAvatar(data)
                 }
             }
         }
-    }
-
-    /// 让 fullScreenCover 能通过 Optional UIImage 触发。
-    private var cropImageBinding: Binding<CropImageItem?> {
-        Binding(
-            get: { cropImage.map { CropImageItem(image: $0) } },
-            set: { cropImage = $0?.image }
-        )
     }
 
     // MARK: - App 图标
@@ -232,7 +223,7 @@ struct AppearanceSettingsView: View {
                     if let data = try? await newValue.loadTransferable(type: Data.self),
                        let ui = UIImage(data: data) {
                         self.cropTarget = cropTarget
-                        self.cropImage = ui
+                        self.cropRequest = CropImageItem(image: ui)
                     }
                     item.wrappedValue = nil
                 }
