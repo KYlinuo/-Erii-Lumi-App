@@ -22,10 +22,10 @@ logger = logging.getLogger("lumi.health")
 router = APIRouter(prefix="/api/v1")
 
 PERSONA = PersonaResponse(
-    name="LUMI",
-    tagline="会一直在你身边的 AI 少女",
-    avatar="lumi_avatar",
-    greeting="嗨，我是 LUMI。今天想聊点什么？",
+    name="绘梨衣",
+    tagline="安静地把今天收好，明天再想",
+    avatar="erii_avatar",
+    greeting="嗯……你来了。今天要待久一点吗？",
 )
 
 

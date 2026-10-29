@@ -272,9 +272,10 @@ struct MessageBubble: View {
                 .font(LUMIStyle.Font.bubbleMeta)
                 .foregroundStyle(.white.opacity(0.3))
         } else if message.isMock {
-            Text("演示回复 · 未接入模型")
+            // 克制的离线提示：不含「mock/演示/未接入」字样，详细状态在设置 → AI 模型。
+            Text("离线")
                 .font(LUMIStyle.Font.bubbleMeta)
-                .foregroundStyle(.orange.opacity(0.72))
+                .foregroundStyle(.secondary)
         } else if let model = message.model {
             Text(model)
                 .font(LUMIStyle.Font.bubbleMeta)

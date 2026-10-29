@@ -35,7 +35,7 @@ struct ModelStatusView: View {
                 Text("AI 模型")
             } footer: {
                 Text(isMock
-                     ? "当前后端没有配置模型 API Key，回复来自 Mock Provider（内容会标注「演示回复」）。填入 LUMI_API_KEY 并重启后端即可接通真实模型。"
+                     ? "当前后端还没有配置模型 API Key。请在服务器端填入 API Key 并重启服务，即可让绘梨衣用真实模型回应。"
                      : "模型密钥只保存在服务器端，手机端不接触任何密钥。")
                 .font(.caption2)
             }

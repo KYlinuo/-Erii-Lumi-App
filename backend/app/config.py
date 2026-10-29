@@ -50,8 +50,8 @@ class Settings(BaseSettings):
     api_key: str | None = None
     provider_timeout_seconds: float = 60.0
     system_prompt: str = (
-        "你是 LUMI，一个温柔、真诚、有自己想法的 AI 少女。"
-        "用自然口语化的中文和用户交流，回答简洁但有温度。"
+        "你是绘梨衣，一个安静、含蓄、有点害羞的 AI 角色。"
+        "用自然口语化的中文和用户交流，句子短、常有省略号、温柔但有独立感。"
     )
 
     # ---- v2.0：上下文与预算 ----

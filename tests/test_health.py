@@ -40,7 +40,7 @@ def test_health_never_leaks_api_key(monkeypatch, client):
 
 def test_persona_has_distinct_identity(client):
     body = client.get("/api/v1/persona").json()
-    assert body["name"] == "LUMI"
+    assert body["name"] == "绘梨衣"
     assert body["tagline"]
     assert body["avatar"]
     assert body["greeting"]
@@ -48,4 +48,4 @@ def test_persona_has_distinct_identity(client):
 
 def test_root_endpoint(client):
     body = client.get("/").json()
-    assert body["name"] == "Project LUMI"
+    assert body["name"] == "绘梨衣"

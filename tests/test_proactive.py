@@ -54,7 +54,7 @@ def test_daily_cap_is_enforced(monkeypatch, db_session):
 
     reload_settings()
 
-    character = personas.get_character(db_session, key="lumi")
+    character = personas.get_character(db_session, key="erii")
     moment = datetime(2026, 10, 28, 19, 0)
     for _ in range(2):
         db_session.add(
@@ -92,8 +92,8 @@ def test_plan_enqueues_when_allowed(monkeypatch, db_session):
 
     reload_settings()
     # 把「上次投递时间」与「今日计数」都放在干净状态，且当前处于允许时段
-    character = personas.get_character(db_session, key="lumi")
-    row = proactive.plan_next(db_session, character_key="lumi")
+    character = personas.get_character(db_session, key="erii")
+    row = proactive.plan_next(db_session, character_key="erii")
     # 结果取决于运行时刻，因此只断言「要么排上要么给出明确原因」
     if row is None:
         allowed, why = proactive.allowed_now()
@@ -120,7 +120,7 @@ def test_pending_queue_survives_app_offline(db_session):
 def test_deliver_marks_as_sent(db_session):
     from app.models import ProactiveMessage
 
-    character = personas.get_character(db_session, key="lumi")
+    character = personas.get_character(db_session, key="erii")
     row = proactive.enqueue(db_session, character=character, user_id=None,
                             content="待投递", reason="checkin")
     db_session.commit()
@@ -133,7 +133,7 @@ def test_deliver_marks_as_sent(db_session):
 
 
 def test_cancel_all_clears_pending(db_session):
-    character = personas.get_character(db_session, key="lumi")
+    character = personas.get_character(db_session, key="erii")
     for text in ("a", "b", "c"):
         proactive.enqueue(db_session, character=character, user_id=None,
                           content=text, reason="checkin")
@@ -151,7 +151,7 @@ def test_proactive_status_endpoint_does_not_claim_apns(client):
 def test_pending_endpoint_and_delivered(client, db_session):
     from app import personas
 
-    character = personas.get_character(db_session, key="lumi")
+    character = personas.get_character(db_session, key="erii")
     proactive.enqueue(db_session, character=character, user_id=None,
                       content="待拉取的问候", reason="greeting")
     db_session.commit()
@@ -166,7 +166,7 @@ def test_pending_endpoint_and_delivered(client, db_session):
 def test_cancel_endpoint(client, db_session):
     from app import personas
 
-    character = personas.get_character(db_session, key="lumi")
+    character = personas.get_character(db_session, key="erii")
     proactive.enqueue(db_session, character=character, user_id=None,
                       content="会被取消", reason="checkin")
     db_session.commit()

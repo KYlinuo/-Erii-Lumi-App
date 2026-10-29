@@ -1,8 +1,7 @@
 """人格（角色）接口。
 
-保留多套人格相互独立：LUMI / 林穗 / 祁鹿 / 沈昼 / 绘梨衣。
-绘制梨衣的设定来自 Windows 桌宠工程已有素材（source='erii-pet'），
-不会被覆盖；标为 `reconstructed` 的人格说明本机未找到原始设定文档。
+v2.x：只保留一个人格——绘梨衣。她的设定来自 Windows 桌宠工程已有素材
+（source='erii-pet'），不会被覆盖。
 """
 
 from __future__ import annotations
@@ -25,7 +24,13 @@ router = APIRouter(
 
 @router.get("", response_model=list[CharacterOut])
 def list_all(db: Session = Depends(get_db)):
-    return [c.to_dict() for c in personas.list_characters(db)]
+    """前台只返回绘梨衣一个人格；旧的多角色数据只在后端做兼容归档。"""
+    erii = personas.get_character(db, key="erii")
+    if erii is None:
+        personas.seed_characters(db)
+        db.commit()
+        erii = personas.get_character(db, key="erii")
+    return [erii.to_dict()] if erii else []
 
 
 @router.get("/{key}", response_model=CharacterDetail)

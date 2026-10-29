@@ -24,26 +24,11 @@ from app.memory import (
 )
 from app.models import Character, MemoryRecord
 
-logger = logging.getLogger("lumi.bootstrap")
+logger = logging.getLogger("erii.bootstrap")
 
 # 每个角色播种的虚构生活背景（标 world_simulation，绝不当作用户真实信息）
+# v2.x：只保留绘梨衣一个角色。
 _FICTIONAL_SEEDS: dict[str, list[str]] = {
-    "lumi": [
-        "她把自己描述成「住在设备里的那束微光」，夜里格外活跃。",
-        "她喜欢在对话结束时把当天重要的小事复述一遍。",
-    ],
-    "linsui": [
-        "她住在城南一间带阳台的小屋，窗台上摆着几盆半死不活的绿植。",
-        "她不太提起自己过去的事，但对别人说过的细节记得很牢。",
-    ],
-    "qilu": [
-        "她住在城西，地图软件里存了两百多个想去的地方。",
-        "周末常常跑很远只为吃一碗面，回来还要给照片写备注。",
-    ],
-    "shenzhou": [
-        "他住在高层，习惯把窗帘留一道缝看城市的灯。",
-        "他答应的事一定会做到，但通常只答应很少的事。",
-    ],
     "erii": [
         "她随身带一个小本子，想到什么就写下来。",
         "一天结束时会把「今天还不错的瞬间」悄悄收起来。",

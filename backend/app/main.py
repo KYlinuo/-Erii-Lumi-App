@@ -70,9 +70,9 @@ async def lifespan(app: FastAPI):  # noqa: ANN201
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
-        title="Project LUMI",
+        title="绘梨衣 AI 陪伴",
         version=__version__,
-        description="LUMI v0.1 后端：真实模型驱动的 AI 少女聊天服务。",
+        description="绘梨衣 AI 陪伴后端：真实模型驱动的陪伴服务。",
         lifespan=lifespan,
     )
 
@@ -102,7 +102,7 @@ def create_app() -> FastAPI:
     @app.get("/", tags=["system"])
     def root() -> dict:
         return {
-            "name": "Project LUMI",
+            "name": "绘梨衣",
             "version": __version__,
             "docs": "/docs",
             "health": "/api/v1/health",
@@ -160,6 +160,10 @@ def main() -> None:
         log_level=settings.log_level.lower(),
         reload=settings.env.lower() == "dev",
         reload_dirs=[str(Path(__file__).resolve().parents[1])],
+        # 公网部署：信任反向代理（Caddy/Nginx）转发的 X-Forwarded-* 头，
+        # 让 request.url.scheme 正确识别为 https，否则安全中间件会误判协议。
+        proxy_headers=True,
+        forwarded_allow_ips="*",
     )
 
 

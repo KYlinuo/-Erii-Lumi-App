@@ -1,4 +1,4 @@
-"""Mock Provider：没有模型 API Key 时的**开发**替代实现。
+"""开发用替代实现：仅在显式配置 LUMI_PROVIDER=mock 时启用。
 
 诚实边界（重要）：
 - 它的 `model` 固定为 `mock-provider-v1`，并会被写进 `messages.model` 字段，
@@ -7,7 +7,7 @@
   并额外返回 `is_mock=true`；
 - 一旦配置了真实 Key，工厂会优先构造真实适配器，Mock 不会偷偷顶替。
 
-也就是说 Mock 只用于联调管线，不会被伪装成真实 AI 回复。
+也就是说它只用于联调管线，不会被伪装成真实 AI 回复。
 """
 
 from __future__ import annotations

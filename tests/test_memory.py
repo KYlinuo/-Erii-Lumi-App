@@ -28,41 +28,21 @@ def test_extraction_can_be_disabled(monkeypatch):
     assert mem.extract_candidates("我叫小明") == []
 
 
-def test_ingest_stores_user_facts_as_shared_across_personas(db_session):
+def test_ingest_stores_user_facts_as_shared(db_session):
+    """用户真实信息抽成用户层记忆（character_id=None），不绑定角色。"""
     from app import personas
 
-    lumi = personas.get_character(db_session, key="lumi")
-    qilu = personas.get_character(db_session, key="qilu")
-
+    erii = personas.get_character(db_session, key="erii")
     saved = mem.ingest_user_message(
-        db_session, user_id=None, character_id=lumi.id,
+        db_session, user_id=None, character_id=erii.id,
         message_id="m1", user_text="我叫小明",
     )
     db_session.commit()
     assert saved, "应至少抽出一条记忆"
 
-    # 换一个人格也必须能看到这条真实用户信息
-    visible_qilu = {m.content for m in mem.query_memories(db_session, character_id=qilu.id)}
-    assert any("小明" in c for c in visible_qilu)
+    visible = {m.content for m in mem.query_memories(db_session, character_id=erii.id)}
+    assert any("小明" in c for c in visible)
     assert all(m.character_id is None for m in saved), "用户层记忆不绑定人格"
-
-
-def test_relationship_memory_is_isolated_per_persona(db_session):
-    from app import personas
-
-    lumi = personas.get_character(db_session, key="lumi")
-    erii = personas.get_character(db_session, key="erii")
-
-    mem.record(
-        db_session, scope="shared_experience", content="一起看过的那场雨",
-        character_id=lumi.id, subject=mem.SUBJECT_RELATIONSHIP,
-    )
-    db_session.commit()
-
-    lumi_visible = {m.content for m in mem.query_memories(db_session, character_id=lumi.id)}
-    erii_visible = {m.content for m in mem.query_memories(db_session, character_id=erii.id)}
-    assert "一起看过的那场雨" in lumi_visible
-    assert "一起看过的那场雨" not in erii_visible
 
 
 def test_fictional_life_never_leaks_into_user_facts(db_session):

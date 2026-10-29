@@ -51,7 +51,7 @@ struct LaunchView: View {
                     .animation(.spring(response: 0.7, dampingFraction: 0.7), value: appeared)
 
                 VStack(spacing: 6) {
-                    Text("LUMI")
+                    Text("绘梨衣")
                         .font(.system(size: 40, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .tracking(6)

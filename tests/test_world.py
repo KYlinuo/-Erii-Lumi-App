@@ -8,7 +8,7 @@ from app import personas, world
 
 
 def test_simulate_day_creates_events(db_session):
-    character = personas.get_character(db_session, key="lumi")
+    character = personas.get_character(db_session, key="erii")
     events = world.simulate_day(db_session, character, date(2026, 10, 20))
     db_session.commit()
     assert events, "应为角色生成虚构的一天"
@@ -19,7 +19,7 @@ def test_simulate_day_creates_events(db_session):
 
 
 def test_simulation_is_idempotent_per_day(db_session):
-    character = personas.get_character(db_session, key="lumi")
+    character = personas.get_character(db_session, key="erii")
     day = date(2026, 10, 21)
     first = world.simulate_day(db_session, character, day)
     db_session.commit()
@@ -30,16 +30,16 @@ def test_simulation_is_idempotent_per_day(db_session):
 
 def test_simulation_is_deterministic(db_session):
     """同一角色同一天，无论调用多少次，生成的文本内容一致。"""
-    c1 = personas.get_character(db_session, key="qilu")
+    c1 = personas.get_character(db_session, key="erii")
     events = world.simulate_day(db_session, c1, date(2026, 10, 22))
     db_session.commit()
     texts = [e.content for e in events]
 
     # 换一个干净的角色实例重放同一天（用 erii 的同一天不行，key 不同）；
     # 这里改为直接验证「同一 seed 得到同一选择」这一底层性质
-    picked = world._deterministic_choice("qilu|2026-10-22|0|tpl", world._TEMPLATES["diary"])
+    picked = world._deterministic_choice("erii|2026-10-22|0|tpl", world._TEMPLATES["diary"])
     assert picked in world._TEMPLATES["diary"]
-    assert world._deterministic_choice("qilu|2026-10-22|0|tpl", world._TEMPLATES["diary"]) == picked
+    assert world._deterministic_choice("erii|2026-10-22|0|tpl", world._TEMPLATES["diary"]) == picked
     assert texts
 
 
@@ -62,7 +62,7 @@ def test_timeline_sorted_desc_and_filterable(db_session):
 
 
 def test_timeline_respects_since(db_session):
-    character = personas.get_character(db_session, key="lumi")
+    character = personas.get_character(db_session, key="erii")
     now = datetime.now(timezone.utc)
     world.record_event(db_session, character_id=character.id, kind="diary",
                        content="很久以前", occurred_at=now - timedelta(days=100))
@@ -76,7 +76,7 @@ def test_timeline_respects_since(db_session):
 
 
 def test_recent_context_mentions_events(db_session):
-    character = personas.get_character(db_session, key="lumi")
+    character = personas.get_character(db_session, key="erii")
     world.simulate_day(db_session, character)
     db_session.commit()
     ctx = world.recent_context(db_session, character.id, limit=3)
@@ -99,8 +99,8 @@ def test_diary_endpoint_marks_content_as_fictional(client):
 
 
 def test_timeline_endpoint_and_state(client):
-    assert client.get("/api/v1/world/lumi/timeline?days=7").status_code == 200
-    state = client.get("/api/v1/world/lumi/state").json()
+    assert client.get("/api/v1/world/erii/timeline?days=7").status_code == 200
+    state = client.get("/api/v1/world/erii/state").json()
     assert state["simulated"] is True
     assert state["event_count"] >= 1
     assert "by_kind" in state
@@ -112,16 +112,16 @@ def test_world_routes_404_for_unknown_character(client):
 
 def test_simulate_endpoint_is_idempotent_for_a_given_day(client):
     day = "2026-09-01"
-    first = client.post(f"/api/v1/world/qilu/simulate?max_events=2&date={day}").json()
-    second = client.post(f"/api/v1/world/qilu/simulate?max_events=2&date={day}").json()
+    first = client.post(f"/api/v1/world/erii/simulate?max_events=2&date={day}").json()
+    second = client.post(f"/api/v1/world/erii/simulate?max_events=2&date={day}").json()
     assert len(first) == 2
     assert second == [], "同一天重复触发生成不应再写入"
 
 
 def test_simulate_endpoint_refuses_today_if_already_generated(client):
     """启动播种已经生成了「今天」的内容，再次触发必须返回空而不是重复写入。"""
-    assert client.post("/api/v1/world/lumi/simulate?max_events=3").json() == []
+    assert client.post("/api/v1/world/erii/simulate?max_events=3").json() == []
 
 
 def test_simulate_endpoint_rejects_bad_date(client):
-    assert client.post("/api/v1/world/lumi/simulate?date=not-a-date").status_code == 422
+    assert client.post("/api/v1/world/erii/simulate?date=not-a-date").status_code == 422

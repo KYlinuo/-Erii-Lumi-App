@@ -27,7 +27,7 @@ final class AppSession: ObservableObject {
 
     init(api: LUMIAPIClient? = nil, store: MessageStore? = nil) {
         let client = api ?? LUMIAPIClient(configuration: { ConfigurationStore.load() })
-        let stored = UserDefaults.standard.string(forKey: Self.characterKeyDefaultsKey) ?? "lumi"
+        let stored = UserDefaults.standard.string(forKey: Self.characterKeyDefaultsKey) ?? "erii"
         self.api = client
         self.characterKey = stored
         self.chatViewModel = ChatViewModel(

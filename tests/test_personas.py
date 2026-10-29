@@ -1,28 +1,28 @@
-"""人格系统：内置人格完整、不互相覆盖、绘梨衣设定不被改写、虚构人生隔离。"""
+"""人格系统：只保留绘梨衣，设定不被覆盖，虚构人生正确标注。"""
 
 from __future__ import annotations
 
 from app import personas
 from app.models import Character
 
-EXPECTED_KEYS = {"lumi", "linsui", "qilu", "shenzhou", "erii"}
+EXPECTED_KEYS = {"erii"}
 
 
-def test_all_builtin_personas_exist(db_session):
+def test_only_erii_persona_exists(db_session):
     personas.seed_characters(db_session)
     db_session.commit()
     keys = {c.key for c in personas.list_characters(db_session)}
-    assert EXPECTED_KEYS <= keys
+    assert keys == EXPECTED_KEYS
 
 
 def test_exactly_one_default_persona(db_session):
     defaults = [c for c in personas.list_characters(db_session) if c.is_default]
     assert len(defaults) == 1
-    assert defaults[0].key == "lumi"
+    assert defaults[0].key == "erii"
 
 
 def test_seeding_does_not_overwrite_existing_settings(db_session):
-    """既有设定（例如绘梨衣来自桌宠的描述）绝不能被内置模板覆盖。"""
+    """绘梨衣既有设定（来自桌宠素材）绝不能被内置模板覆盖。"""
     erii = personas.get_character(db_session, key="erii")
     erii.background = "【用户自定义】保留原始设定"
     erii.system_prompt = "【用户自定义】保留原始提示词"
@@ -48,19 +48,6 @@ def test_seeding_is_idempotent(db_session):
     assert len(personas.list_characters(db_session)) == n_before
 
 
-def test_personas_are_not_merged(db_session):
-    """三套人格 + 绘梨衣各自独立，不能出现合并后的统一人设。"""
-    rows = {c.key: c for c in personas.list_characters(db_session)}
-    names = {key: row.name for key, row in rows.items()}
-    assert len(set(names.values())) == len(names), "人格名字不应重复/合并"
-
-    styles = {key: row.speaking_style for key, row in rows.items()}
-    assert len(set(styles.values())) == len(styles), "说话方式不应复用同一段"
-
-    assert rows["linsui"].system_prompt != rows["qilu"].system_prompt
-    assert "绘梨衣" in rows["erii"].name
-
-
 def test_unknown_key_falls_back_to_default(db_session):
     from app.config import get_settings
 
@@ -69,14 +56,14 @@ def test_unknown_key_falls_back_to_default(db_session):
 
 
 def test_system_prompt_contains_persona_and_guardrails(db_session):
-    character = personas.resolve_character(db_session, "shenzhou")
+    character = personas.resolve_character(db_session, "erii")
     prompt = personas.compose_system_prompt(character)
-    assert "沈昼" in prompt
+    assert "绘梨衣" in prompt
     assert "虚构" in prompt  # 必须声明自己是虚构角色
 
 
 def test_system_prompt_injects_memory_and_world_with_labels(db_session):
-    character = personas.resolve_character(db_session, "lumi")
+    character = personas.resolve_character(db_session, "erii")
     prompt = personas.compose_system_prompt(
         character,
         memory_block="- [事实] 用户叫小明 （推测，不确定）",
@@ -89,64 +76,25 @@ def test_system_prompt_injects_memory_and_world_with_labels(db_session):
     assert "2026-10-28" in prompt
 
 
-def test_fictional_life_is_isolated_per_persona(db_session):
-    """不同人格的虚构人生互不相见。"""
-    lumi = personas.get_character(db_session, key="lumi")
-    erii = personas.get_character(db_session, key="erii")
-
-    from app import world
-
-    world.record_event(db_session, character_id=lumi.id, kind="diary", content="LUMI 的私事")
-    world.record_event(db_session, character_id=erii.id, kind="diary", content="绘梨衣的私事")
-    db_session.commit()
-
-    lumi_events = {e.content for e in world.timeline(db_session, lumi.id, limit=50)}
-    erii_events = {e.content for e in world.timeline(db_session, erii.id, limit=50)}
-    assert "LUMI 的私事" in lumi_events
-    assert "LUMI 的私事" not in erii_events
-    assert "绘梨衣的私事" in erii_events
-
-
 def test_idle_lines_for_erii_are_marked_fictional(db_session):
     lines = personas.idle_lines("erii")
     assert len(lines) >= 100, "绘梨衣的待机台词来自桌宠已有素材"
     assert lines[0]
-    assert personas.idle_lines("lumi") == []
 
 
 def test_character_to_dict_exposes_traits(db_session):
-    data = personas.get_character(db_session, key="qilu").to_dict()
-    assert data["name"] == "祁鹿"
+    data = personas.get_character(db_session, key="erii").to_dict()
+    assert data["name"] == "绘梨衣"
     assert isinstance(data["traits"], list) and data["traits"]
     assert isinstance(data["interests"], list) and data["interests"]
 
 
-def test_three_personas_are_agent_authored_and_declared_fictional(db_session):
-    """林穗/祁鹿/沈昼由本次 AI 工程师拟定为定稿，必须如实标注来源 + 声明是虚构。"""
-    for key in ("linsui", "qilu", "shenzhou"):
-        row = personas.get_character(db_session, key=key)
-        assert row.source == "agent-authored", key
-        assert "虚构设定" in row.background, f"{key} 的背景必须声明是虚构"
-        assert row.source != "reconstructed"
-
-
-def test_every_persona_has_edges_not_customer_service(db_session):
-    """人格要有棱角：每套设定都必须明确写出缺点/边界，避免变成千人一面的客服。"""
-    for key in ("lumi", "linsui", "qilu", "shenzhou", "erii"):
-        row = personas.get_character(db_session, key=key)
-        prompt = row.system_prompt
-        assert "【你的棱角】" in prompt or "【边界】" in prompt, f"{key} 缺少人格棱角/边界描述"
-        assert len(prompt) > 120, f"{key} 的 system_prompt 过于单薄"
-
-
-def test_persona_greetings_are_distinct(db_session):
-    greetings = [c.greeting for c in personas.list_characters(db_session)]
-    assert len(set(greetings)) == len(greetings), "每套人格的开场白应当不同"
-
-
-def test_persona_backgrounds_are_distinct(db_session):
-    backgrounds = [c.background for c in personas.list_characters(db_session)]
-    assert len(set(backgrounds)) == len(backgrounds), "每套人格的背景应当独立"
+def test_erii_has_edges_not_customer_service(db_session):
+    """绘梨衣要有棱角：明确写出边界，避免变成千人一面的客服。"""
+    row = personas.get_character(db_session, key="erii")
+    prompt = row.system_prompt
+    assert "【你的棱角】" in prompt or "【边界】" in prompt
+    assert len(prompt) > 120
 
 
 def test_character_model_roundtrip(db_session):

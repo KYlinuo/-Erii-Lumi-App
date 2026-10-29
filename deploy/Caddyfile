@@ -1,0 +1,8 @@
+# 绘梨衣 AI 陪伴 —— Caddy 反向代理（自动 HTTPS）
+#
+# 把 example.com 换成你的域名。Caddy 会自动申请并续期 Let's Encrypt 证书，
+# 无需手动配置证书。iPhone 用 https://你的域名 即可通过流量访问。
+
+your-domain.example.com {
+    reverse_proxy 127.0.0.1:8000
+}

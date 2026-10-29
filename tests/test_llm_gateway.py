@@ -232,32 +232,13 @@ def test_conversation_keeps_its_character(client, db_session, stub):
     from app import personas as p
 
     body = client.post(
-        "/api/v1/chat", json={"message": "用祁鹿聊", "character_key": "qilu"}
+        "/api/v1/chat", json={"message": "用绘梨衣聊", "character_key": "erii"}
     ).json()
     conv_id = body["conversation_id"]
-    qilu = p.get_character(db_session, key="qilu")
+    erii = p.get_character(db_session, key="erii")
 
     # 不指定 character_key 继续聊，应沿用同一人格
     client.post("/api/v1/chat", json={"message": "继续", "conversation_id": conv_id})
     listed = client.get("/api/v1/conversations").json()
     conv = next(c for c in listed if c["id"] == conv_id)
-    assert conv["character_id"] == qilu.id
-
-
-def test_switching_character_does_not_merge_personas(client, db_session):
-    from app import personas as p
-
-    conv = client.post(
-        "/api/v1/conversations", params={"character_key": "linsui"}
-    ).json()
-    conv_id = conv["id"]
-    linsui_id = conv["character_id"]
-
-    switched = client.patch(
-        f"/api/v1/conversations/{conv_id}/character?character_key=qilu"
-    ).json()
-    qilu = p.get_character(db_session, key="qilu")
-
-    assert switched["character_id"] == qilu.id
-    assert switched["character_id"] != linsui_id
-    assert len({c.key for c in p.list_characters(db_session)}) >= 5
+    assert conv["character_id"] == erii.id
