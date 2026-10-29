@@ -120,7 +120,7 @@
 
 | 项 | 结果 |
 |---|---|
-| 后端 pytest | **189 项全部通过**（本机 Windows + GitHub Actions） |
+| 后端 pytest | **195 项全部通过**（本机 Windows + GitHub Actions） |
 | iOS 构建 | ✅ **GitHub Actions macos-15 全流程成功**（最新 `7e76349`） |
 | iOS 单元测试 | ✅ 模拟器上 38 项全绿 |
 | 产物 | `LUMI-2.0.0.ipa` 568,086 字节，arm64，未签名 |
@@ -140,6 +140,34 @@
 > 提交链：`781f1ea`（流式）→ `7e76349`（记忆纠正+流式闭包修复）→ `2c58d1c`（日记连贯）→ `659e007`（指标）。
 
 ---
+
+## 五（四续）、图标 / DeepSeek / LiveKit（2026-10-29 午后）
+
+| 项 | 内容 |
+|---|---|
+| App 图标 | 用绘梨衣图生成 4 套（默认/樱色/深夜/冰晶），`CFBundleAlternateIcons` 配置，设置页 `setAlternateIconName` 切换 |
+| App 名字 | `CFBundleDisplayName` 改为「绘梨衣」 |
+| DeepSeek 接入 | `.env` 已填 key，`provider_model=deepseek-flash`（V4.1-Flash-1017）；端到端验证真实对话 + 流式逐字通过 |
+| 模型可修改 | `GET/POST /api/v1/model` 运行时切换，不用重启；默认 deepseek-flash |
+| 实时通话 | `backend/app/livekit.py` 签发 Access Token（JWT/HS256 纯标准库）；iOS 引入 LiveKit SDK 2.19.0 + CallView |
+| 测试 | 后端 195 项全绿；iOS 构建全绿（含 LiveKit SDK 编译） |
+
+产物：`dist/LUMI-2.0.0.ipa` 16,590,986 字节（含 LiveKit），SHA256 `3776e602...`；
+包内校验：`CFBundleDisplayName=绘梨衣`、备用图标 3 套、`LiveKit.framework` 存在。
+
+本轮 CI 又抓到 3 个真实错误（本机无编译器）：`publishAudioTrack` 不存在（改用
+`setMicrophone(enabled:)`）、`LocalAudioTrack.createTrack()` 是 async 非 Optional、
+`Section("title"){...} footer:` 不是合法 SwiftUI API。
+
+### 实时通话的诚实边界
+
+LiveKit 的**代码与接入点已就绪**，但真正双向通话仍需三样**用户侧**凭据/服务，
+当前都未提供，所以通话按钮显示「未配置」而不是假装接通：
+1. 一台 LiveKit Server（`LUMI_LIVEKIT_URL` + API Key/Secret，可 cloud.livekit.io 或自建）；
+2. STT 服务（`LUMI_ASR_MODEL`，如 whisper-1 / deepgram）；
+3. TTS 服务（`LUMI_TTS_MODEL`，如 tts-1 / elevenlabs）。
+
+DeepSeek 只做文本推理，不含语音识别/合成——这三点是实时语音的物理前提，缺一不可。
 
 ## 六、明确未完成（不要当成已完成）
 
