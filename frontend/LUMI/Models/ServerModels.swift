@@ -65,6 +65,8 @@ struct ChatResponse: Decodable, Sendable {
         characterId = try c.decodeIfPresent(String.self, forKey: .characterId)
         convSeq = try c.decodeIfPresent(Int.self, forKey: .convSeq)
         idempotentReplay = try c.decodeIfPresent(Bool.self, forKey: .idempotentReplay) ?? false
+        // 旧后端不返回 is_mock，缺省按 false（不能因为兼容而假装"已接真实模型"）
+        isMock = try c.decodeIfPresent(Bool.self, forKey: .isMock) ?? false
     }
 }
 
