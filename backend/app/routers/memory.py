@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app import memory as memory_mod
@@ -147,6 +148,30 @@ def archive(memory_id: str, db: Session = Depends(get_db)):
         )
     db.commit()
     return db.get(MemoryRecord, memory_id).to_dict()
+
+
+class CorrectRequest(BaseModel):
+    correction: str  # wrong | changed | ephemeral
+    note: str = ""
+
+
+@router.post("/{memory_id}/correct", response_model=MemoryOut)
+def correct(memory_id: str, payload: CorrectRequest, db: Session = Depends(get_db)):
+    """按用户反馈纠正记忆（记错了 / 已经变化 / 仅本次有效）。"""
+    try:
+        row = memory_mod.correct_memory(db, memory_id, payload.correction, payload.note)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "bad_correction", "message": "correction 必须是 wrong/changed/ephemeral。", "hint": None},
+        )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "not_found", "message": "记忆不存在。", "hint": None},
+        )
+    db.commit()
+    return row.to_dict()
 
 
 @router.post("/{memory_id}/pin", response_model=MemoryOut)

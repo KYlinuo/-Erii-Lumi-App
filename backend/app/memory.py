@@ -64,6 +64,9 @@ SOURCE_SYSTEM = "system_seed"
 
 STATUS_ACTIVE = "active"
 STATUS_ARCHIVED = "archived"
+# 需求 19：用户纠正的细分状态
+STATUS_SUPERSEDED = "superseded"  # 「已经变化」——被新事实替代
+STATUS_EPHEMERAL = "ephemeral"    # 「仅本次有效」——临时，不进入长期检索
 
 # 只有真实用户相关的记忆可以跨人格共享
 _USER_LEVEL_SCOPES = frozenset({"user_fact", "user_preference"})
@@ -504,6 +507,51 @@ def archive_memory(db: Session, memory_id: str) -> bool:
     row.archived_at = datetime.now(timezone.utc)
     db.flush()
     return True
+
+
+# 需求 19：三种纠错方式
+_CORRECTION_TYPES = ("wrong", "changed", "ephemeral")
+
+
+def correct_memory(
+    db: Session,
+    memory_id: str,
+    correction: str,
+    note: str = "",
+) -> MemoryRecord | None:
+    """按用户反馈纠正一条记忆，保留变更记录。
+
+    - ``wrong``   记错了 → 归档（archived），记录到 source_ref；
+    - ``changed`` 已经变化 → 标记 superseded（被新事实替代，可追溯）；
+    - ``ephemeral`` 仅本次有效 → 标记 ephemeral（不进入长期检索）。
+
+    固定（pinned）记忆同样允许被纠正——用户永远是事实的最高权威。
+    """
+    if correction not in _CORRECTION_TYPES:
+        raise ValueError(f"unsupported correction: {correction}")
+
+    row = db.get(MemoryRecord, memory_id)
+    if row is None:
+        return None
+
+    now = datetime.now(timezone.utc)
+    if correction == "wrong":
+        row.status = STATUS_ARCHIVED
+        row.archived_at = now
+    elif correction == "changed":
+        row.status = STATUS_SUPERSEDED
+        row.archived_at = now
+    else:  # ephemeral
+        row.status = STATUS_EPHEMERAL
+        row.archived_at = now
+
+    # 变更记录：追加到 source_ref，保留原始来源与纠错轨迹
+    suffix = f"corrected:{correction}" + (f":{note}" if note else "")
+    row.source_ref = f"{row.source_ref or ''} {suffix}".strip()
+    row.pinned = 0  # 被纠正后不再固定，避免「固定的错误」继续生效
+    row.updated_at = now
+    db.flush()
+    return row
 
 
 def set_pinned(db: Session, memory_id: str, pinned: bool) -> MemoryRecord | None:
