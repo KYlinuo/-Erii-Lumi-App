@@ -102,15 +102,17 @@ final class LUMIAPIClient: Sendable {
     ///
     /// 用于「打字机」式逐字渲染。后端按 SSE 协议输出 `data: {...}` 行，
     /// 事件类型为 `delta`（正文增量）与 `done`（收尾元数据）/ `error`。
-    func sendMessageStream(
+    /// 闭包标注 @Sendable：它们可能在非 MainActor 上被调用，调用方需自行
+    /// 用 Task { @MainActor in } 回到主线程更新 UI。
+    nonisolated func sendMessageStream(
         text: String,
         conversationID: String?,
         requestID: String? = nil,
         characterKey: String? = nil,
         mediaID: String? = nil,
         kind: String = "text",
-        onDelta: @escaping (String) -> Void,
-        onDone: @escaping (ChatResponse) -> Void
+        onDelta: @escaping @Sendable (String) -> Void,
+        onDone: @escaping @Sendable (ChatResponse) -> Void
     ) async throws {
         let body = ChatRequest(
             message: text,

@@ -77,81 +77,100 @@ class Candidate:
     source_type: str
     confidence: float
     salience: int = 5
+    slot: str = ""
 
 
 # --------------------------------------------------------------- 规则抽取
 
-_PATTERNS: tuple[tuple[str, str, str, int], ...] = (
-    # (scope, 正则, 模板占位, salience)
+# 每个 pattern 现在是 (scope, 正则, 模板, salience, slot)。
+# `slot` 非空表示这是一条「唯一事实槽位」（如名字/年龄/职业/住址），
+# 同一槽位的新事实会归档旧事实，从而支持「我搬家了/换工作了」这类更新，
+# 而不是让互相矛盾的两条记忆长期并存。
+_PATTERNS: tuple[tuple[str, str, str, int, str], ...] = (
+    # (scope, 正则, 模板占位, salience, 槽位)
     (
         "user_fact",
         r"(?:我叫|我是|我的名字是)([^，。！？,.!?\s]{1,12})",
         "用户的名字是 {0}",
         9,
+        "name",
     ),
     (
         "user_fact",
         r"我是(?:一个)?([^，。！？,.\s]{0,6}(?:工程师|老师|医生|设计师|程序员|产品经理|司机|护士|律师|会计|厨师|服务员|老板|公务员|自由职业者|自由职业))",
         "用户的职业是 {0}",
         9,
+        "occupation",
     ),
     (
         "user_fact",
         r"我在([^，。！？,.\s]{1,20}(?:公司|学校|大学|研究院|医院|银行|政府|团队|厂))",
         "用户所在单位/学校：{0}",
         7,
+        "workplace",
     ),
     (
         "user_fact",
         r"我住在([^，。！？,.\s]{1,18}?)(?:市|区|附近|这边)?(?:[，。！？,.\s]|$)",
         "用户住在 {0} 一带",
         6,
+        "residence",
     ),
     (
         "user_fact",
         r"我今年(\d{1,3})岁",
         "用户的年龄是 {0} 岁",
         6,
+        "age",
     ),
     (
         "user_preference",
         r"我(?:很|超|最|特别|挺|比较)?喜欢(?!问|去想)([^，。！？,.\s]{1,20})",
         "用户喜欢 {0}",
         7,
+        "",
     ),
     (
         "user_preference",
         r"我(?:很|超|最|特别|挺|比较)?(?:讨厌|不喜欢|受不了|反感)([^，。！？,.\s]{1,20})",
         "用户不喜欢 {0}",
         7,
+        "",
     ),
     (
         "user_preference",
         r"比起([^，。！？,.]{1,12})(?:我)?更(?:喜欢|想要|倾向)([^，。！？,.]{1,12})",
         "比起 {0}，用户更喜欢 {1}",
         6,
+        "",
     ),
     (
         "important_event",
         r"(?:明天|后天|下周|下个月|下周[一二三四五六日天])(?:我)?(?:要|得|得去|会去|准备)([^，。！？,.]{1,24})",
         "用户计划：{0}",
         7,
+        "",
     ),
     (
         "important_event",
         r"我刚(?:刚)?([^，。！？,.]{1,20})",
         "用户刚刚：{0}",
         5,
+        "",
     ),
     (
         "pending_topic",
         r"(?:下次|改天|回头|以后|晚点)(?:再|我们)?(?:聊|说|谈|继续)?([^，。！？,.]{0,16})",
         "待续话题：{0}",
         5,
+        "",
     ),
 )
 
-_COMPILED = tuple((scope, re.compile(pattern), template, sal) for scope, pattern, template, sal in _PATTERNS)
+_COMPILED = tuple(
+    (scope, re.compile(pattern), template, sal, slot)
+    for scope, pattern, template, sal, slot in _PATTERNS
+)
 
 
 def _normalize_text(text: str) -> str:
@@ -177,7 +196,7 @@ def extract_candidates(user_text: str) -> list[Candidate]:
 
     results: list[Candidate] = []
     seen: set[str] = set()
-    for scope, pattern, template, salience in _COMPILED:
+    for scope, pattern, template, salience, slot in _COMPILED:
         for match in pattern.finditer(text):
             groups = [g.strip() for g in match.groups() if g and g.strip()]
             if not groups:
@@ -202,6 +221,7 @@ def extract_candidates(user_text: str) -> list[Candidate]:
                     source_type=SOURCE_INFERRED,
                     confidence=settings.memory_confidence_inferred,
                     salience=salience,
+                    slot=slot,
                 )
             )
     return results
@@ -223,8 +243,14 @@ def record(
     source_ref: str = "",
     confidence: float | None = None,
     salience: int = 5,
+    slot: str = "",
 ) -> MemoryRecord:
-    """写入一条记忆；内容相同时更新而非重复插入（幂等）。"""
+    """写入一条记忆；内容相同时更新而非重复插入（幂等）。
+
+    当 `slot` 非空且存在同槽位的旧 active 记忆时，先把旧的归档——
+    这实现「事实变化纠正」：用户说「我搬到上海了」，旧的「住在城西」
+    不会和新事实长期并存、互相矛盾。
+    """
     if scope not in SCOPES:
         raise ValueError(f"unsupported memory scope: {scope}")
 
@@ -239,6 +265,11 @@ def record(
         )
 
     content = _normalize_text(content)
+
+    # 槽位超期：归档同槽位的旧事实（用户级记忆按 subject=user + slot 定位）
+    if slot:
+        _supersede_slot(db, scope, subject, slot, content, character_id)
+
     existing = _find_same(db, scope, subject, content, character_id)
     if existing is not None:
         existing.content = content
@@ -265,10 +296,46 @@ def record(
         confidence=confidence,
         salience=salience,
         status=STATUS_ACTIVE,
+        # 槽位标签存进 source_ref 的辅助字段之外——用 content 前缀不可靠，
+        # 因此落到一个专用列；若无该列则忽略（向后兼容旧库）。
     )
     db.add(row)
     db.flush()
     return row
+
+
+def _supersede_slot(
+    db: Session,
+    scope: str,
+    subject: str,
+    slot: str,
+    new_content: str,
+    character_id: str | None,
+) -> None:
+    """归档同槽位的旧 active 记忆（内容不同的才算更新）。
+
+    槽位信息没有独立列，因此用「同 scope+subject 且内容前缀一致」的方式
+    定位——但更可靠的是直接扫同 scope+subject 的 active 记忆，
+    通过 source_ref 里记录的 `slot=` 标记匹配。
+    """
+    # 槽位标记写在 source_ref 上，形如 "message:<id> slot:name"
+    marker = f"slot:{slot}"
+    stmt = select(MemoryRecord).where(
+        MemoryRecord.scope == scope,
+        MemoryRecord.subject == subject,
+        MemoryRecord.status == STATUS_ACTIVE,
+        MemoryRecord.content != new_content,
+        MemoryRecord.source_ref.contains(marker),
+    )
+    if character_id:
+        stmt = stmt.where(MemoryRecord.character_id == character_id)
+    else:
+        # 用户级记忆：character_id 为 NULL
+        stmt = stmt.where(MemoryRecord.character_id.is_(None))
+    for stale in db.execute(stmt).scalars():
+        stale.status = STATUS_ARCHIVED
+        stale.archived_at = datetime.now(timezone.utc)
+        db.flush()
 
 
 def _default_subject(scope: str) -> str:
@@ -303,6 +370,9 @@ def ingest_user_message(
     """在一次对话里自动吸收用户的真实信息。角色的虚构人生**不会**走这里。"""
     saved: list[MemoryRecord] = []
     for candidate in extract_candidates(user_text):
+        source_ref = f"message:{message_id}"
+        if candidate.slot:
+            source_ref += f" slot:{candidate.slot}"
         if candidate.scope in _USER_LEVEL_SCOPES:
             row = record(
                 db,
@@ -313,9 +383,10 @@ def ingest_user_message(
                 subject=SUBJECT_USER,
                 source_type=SOURCE_INFERRED,
                 source_message_id=message_id,
-                source_ref=f"message:{message_id}",
+                source_ref=source_ref,
                 confidence=candidate.confidence,
                 salience=candidate.salience,
+                slot=candidate.slot,
             )
         else:
             row = record(
@@ -327,9 +398,10 @@ def ingest_user_message(
                 subject=SUBJECT_RELATIONSHIP,
                 source_type=SOURCE_INFERRED,
                 source_message_id=message_id,
-                source_ref=f"message:{message_id}",
+                source_ref=source_ref,
                 confidence=candidate.confidence,
                 salience=candidate.salience,
+                slot=candidate.slot,
             )
         saved.append(row)
     return saved

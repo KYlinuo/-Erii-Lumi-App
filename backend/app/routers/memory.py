@@ -47,6 +47,7 @@ def list_all(
     scope: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     include_shared: bool = True,
+    query: Annotated[str | None, Query()] = None,
     db: Session = Depends(get_db),
 ):
     character_id = _resolve_character(db, character_key)
@@ -56,6 +57,7 @@ def list_all(
         scopes=[scope] if scope else None,
         limit=limit,
         include_shared=include_shared,
+        query=query,
     )
     return [r.to_dict() for r in rows]
 
