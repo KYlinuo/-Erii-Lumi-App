@@ -506,6 +506,17 @@ def archive_memory(db: Session, memory_id: str) -> bool:
     return True
 
 
+def set_pinned(db: Session, memory_id: str, pinned: bool) -> MemoryRecord | None:
+    """固定/取消固定一条记忆。固定后检索权重更高、不受时间衰减。"""
+    row = db.get(MemoryRecord, memory_id)
+    if row is None:
+        return None
+    row.pinned = 1 if pinned else 0
+    row.updated_at = datetime.now(timezone.utc)
+    db.flush()
+    return row
+
+
 def export_memories(db: Session, *, character_id: str | None = None) -> list[dict]:
     rows = query_memories(db, character_id=character_id, limit=None, status=None)
     return [r.to_dict() for r in rows]
@@ -561,7 +572,8 @@ def _relevance_weight(record: MemoryRecord, query: str) -> float:
 def score_memory(record: MemoryRecord, query: str = "", now: datetime | None = None) -> float:
     """综合得分。权重可解释、可调，不做黑箱。"""
     now = now or datetime.now(timezone.utc)
-    recency = _recency_weight(record, now)
+    # 固定的记忆不受时间衰减（用户手动收藏的重要信息，应该一直记得）
+    recency = 1.0 if record.pinned else _recency_weight(record, now)
     salience = min(1.0, max(0.0, (record.salience or 5) / 10.0))
     confidence = min(1.0, max(0.0, record.confidence or 0.0))
     recall = min(1.0, (record.recall_count or 0) / 5.0)

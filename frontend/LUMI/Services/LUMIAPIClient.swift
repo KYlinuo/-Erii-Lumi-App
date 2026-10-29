@@ -284,6 +284,12 @@ final class LUMIAPIClient: Sendable {
         try await delete("/api/v1/memory/\(id)")
     }
 
+    /// 固定/取消固定一条记忆。
+    func setMemoryPinned(id: String, pinned: Bool) async throws -> MemoryItem {
+        let path = pinned ? "/api/v1/memory/\(id)/pin" : "/api/v1/memory/\(id)/unpin"
+        return try await post(path, body: EmptyBody())
+    }
+
     // MARK: - 虚构人生
 
     func diary(characterKey: String, limit: Int = 30) async throws -> DiaryResponse {
@@ -330,6 +336,12 @@ final class LUMIAPIClient: Sendable {
         limit: Int = 100
     ) async throws -> [SyncMessage] {
         try await get("/api/v1/sync/conversation/\(conversationID)?after=\(after)&limit=\(limit)")
+    }
+
+    /// 在当前会话内按关键词搜索历史消息。
+    func searchMessages(conversationID: String, query: String) async throws -> [SyncMessage] {
+        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+        return try await get("/api/v1/conversations/\(conversationID)/search?query=\(encoded)")
     }
 
     // MARK: - 主动联系

@@ -17,6 +17,7 @@ from app.services import (
     get_messages,
     get_or_create_conversation,
     list_conversations,
+    search_messages,
 )
 
 logger = logging.getLogger("lumi.conversations")
@@ -67,6 +68,17 @@ def history(
     db: Session = Depends(get_db),
 ) -> list[dict]:
     return get_messages(db, conversation_id, limit=limit)
+
+
+@router.get("/{conversation_id}/search", response_model=list[MessageOut])
+def search(
+    conversation_id: str,
+    query: str = Query(min_length=1, max_length=100),
+    limit: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    """在当前会话内按关键词搜索历史消息。"""
+    return search_messages(db, conversation_id, query.strip(), limit=limit)
 
 
 @router.patch("/{conversation_id}/character", response_model=CreateConversationResponse)

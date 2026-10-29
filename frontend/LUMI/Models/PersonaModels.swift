@@ -85,10 +85,11 @@ struct MemoryItem: Decodable, Sendable, Identifiable, Equatable {
     let confidence: Double
     let salience: Int
     let status: String
+    let pinned: Bool?
     let createdAt: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, scope, subject, content, confidence, salience, status
+        case id, scope, subject, content, confidence, salience, status, pinned
         case userId = "user_id"
         case characterId = "character_id"
         case sourceType = "source_type"
@@ -96,6 +97,9 @@ struct MemoryItem: Decodable, Sendable, Identifiable, Equatable {
         case sourceRef = "source_ref"
         case createdAt = "created_at"
     }
+
+    /// 用户手动固定（收藏）的重要记忆。
+    var isPinned: Bool { pinned ?? false }
 
     /// 从聊天文本推断的内容：必须显式标注，不能被当成用户说过的确定事实。
     var isInferred: Bool { sourceType == "inferred" }

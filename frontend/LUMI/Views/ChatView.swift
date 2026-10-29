@@ -13,6 +13,8 @@ struct ChatView: View {
     @State private var previewImage: PreviewItem?
     @State private var showCallInfo = false
     @State private var callKind: CallKind = .voice
+    @State private var showSearch = false
+    @State private var scrollTarget: UUID?
 
     enum CallKind { case voice, video }
 
@@ -44,6 +46,10 @@ struct ChatView: View {
             ToolbarItem(placement: .principal) { header }
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 14) {
+                    Button { showSearch = true } label: {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.white.opacity(0.85))
+                    }
                     Button { callKind = .voice; showCallInfo = true } label: {
                         Image(systemName: "phone")
                             .foregroundStyle(.white.opacity(0.85))
@@ -65,6 +71,15 @@ struct ChatView: View {
         .sheet(isPresented: $showCallInfo) {
             CallCapabilityView(kind: callKind == .voice ? .voice : .video)
                 .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showSearch) {
+            MessageSearchView(
+                conversationID: viewModel.conversationID,
+                onSelect: { serverID, content in
+                    scrollToMessage(serverID: serverID, content: content)
+                }
+            )
+            .environmentObject(viewModel)
         }
         .fullScreenCover(item: $previewImage) { item in
             ImagePreviewView(image: item.image)
@@ -133,6 +148,14 @@ struct ChatView: View {
             .onChange(of: viewModel.isSending) { _, sending in
                 if sending { scrollToBottom(proxy) }
             }
+            .onChange(of: scrollTarget) { _, target in
+                if let target {
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        proxy.scrollTo(target, anchor: .center)
+                    }
+                    scrollTarget = nil
+                }
+            }
             .onAppear { scrollToBottom(proxy) }
             .overlay(alignment: .center) {
                 if viewModel.isRestoring && viewModel.messages.isEmpty {
@@ -175,6 +198,15 @@ struct ChatView: View {
                     proxy.scrollTo(last.id, anchor: .bottom)
                 }
             }
+        }
+    }
+
+    /// 搜索选中后：按服务端 ID 或内容匹配本地消息，滚动到对应位置。
+    private func scrollToMessage(serverID: String, content: String) {
+        let match = viewModel.messages.first { $0.serverID == serverID }
+            ?? viewModel.messages.first { $0.content == content }
+        if let match {
+            scrollTarget = match.id
         }
     }
 

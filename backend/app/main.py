@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -63,8 +64,34 @@ async def lifespan(app: FastAPI):  # noqa: ANN201
             "LUMI_API_KEY 未配置：/api/v1/chat 将返回 503 provider_not_configured，"
             "不会返回任何伪造回复。"
         )
+
+    # 主动联系：后台定时任务，每 10 分钟检查一次是否该让她主动发消息。
+    # 只在 LUMI_PROACTIVE_ENABLED=true 时真正入队；频率/免打扰/最近活跃检测
+    # 都由 proactive 模块内部把关，绝不打扰刚聊完的用户。
+    proactive_task = asyncio.create_task(_proactive_loop())
+
     yield
+
+    proactive_task.cancel()
     logger.info("LUMI shutdown")
+
+
+async def _proactive_loop() -> None:
+    """后台循环：定期尝试生成主动联系消息（失败不致命，只记录）。"""
+    from app import proactive
+
+    while True:
+        await asyncio.sleep(600)  # 10 分钟
+        try:
+            if not get_settings().proactive_enabled:
+                continue
+            factory = get_session_factory()
+            with factory() as db:
+                proactive.plan_next(db)
+        except asyncio.CancelledError:  # noqa: B904
+            raise
+        except Exception:  # noqa: BLE001 - 后台任务绝不能拖垮主进程
+            logger.exception("proactive loop failed")
 
 
 def create_app() -> FastAPI:

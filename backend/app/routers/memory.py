@@ -149,6 +149,32 @@ def archive(memory_id: str, db: Session = Depends(get_db)):
     return db.get(MemoryRecord, memory_id).to_dict()
 
 
+@router.post("/{memory_id}/pin", response_model=MemoryOut)
+def pin(memory_id: str, db: Session = Depends(get_db)):
+    """固定（收藏）一条记忆：检索时权重更高、不受时间衰减。"""
+    row = memory_mod.set_pinned(db, memory_id, True)
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "not_found", "message": "记忆不存在。", "hint": None},
+        )
+    db.commit()
+    return row.to_dict()
+
+
+@router.post("/{memory_id}/unpin", response_model=MemoryOut)
+def unpin(memory_id: str, db: Session = Depends(get_db)):
+    """取消固定。"""
+    row = memory_mod.set_pinned(db, memory_id, False)
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "not_found", "message": "记忆不存在。", "hint": None},
+        )
+    db.commit()
+    return row.to_dict()
+
+
 @router.delete("/{memory_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete(memory_id: str, db: Session = Depends(get_db)):
     if not memory_mod.delete_memory(db, memory_id):

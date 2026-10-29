@@ -7,6 +7,10 @@ struct AppearanceSettingsView: View {
     @State private var backgroundItem: PhotosPickerItem?
     @State private var myAvatarItem: PhotosPickerItem?
     @State private var characterAvatarItem: PhotosPickerItem?
+    @State private var cropImage: UIImage?
+    @State private var cropTarget: CropTarget = .myAvatar
+
+    enum CropTarget { case myAvatar, characterAvatar }
 
     var body: some View {
         Form {
@@ -19,6 +23,25 @@ struct AppearanceSettingsView: View {
         .background(LUMIStyle.pageBackground)
         .navigationTitle("外观")
         .navigationBarTitleDisplayMode(.inline)
+        .fullScreenCover(item: $cropImageBinding) {
+            if let cropImage {
+                ImageCropView(image: cropImage) { cropped in
+                    if cropTarget == .myAvatar {
+                        appearance.saveMyAvatar(cropped.jpegData(compressionQuality: 0.85) ?? Data())
+                    } else {
+                        appearance.saveCharacterAvatar(cropped.jpegData(compressionQuality: 0.85) ?? Data())
+                    }
+                }
+            }
+        }
+    }
+
+    /// 让 fullScreenCover 能通过 Optional UIImage 触发。
+    private var cropImageBinding: Binding<CropImageItem?> {
+        Binding(
+            get: { cropImage.map { CropImageItem(image: $0) } },
+            set: { cropImage = $0?.image }
+        )
     }
 
     // MARK: - App 图标
@@ -163,14 +186,14 @@ struct AppearanceSettingsView: View {
                 title: "我的头像",
                 image: appearance.myAvatar,
                 item: $myAvatarItem,
-                onSave: { appearance.saveMyAvatar($0) },
+                cropTarget: .myAvatar,
                 onClear: { appearance.clearMyAvatar() }
             )
             avatarRow(
                 title: "绘梨衣头像",
                 image: appearance.characterAvatar,
                 item: $characterAvatarItem,
-                onSave: { appearance.saveCharacterAvatar($0) },
+                cropTarget: .characterAvatar,
                 onClear: { appearance.clearCharacterAvatar() }
             )
         }
@@ -180,7 +203,7 @@ struct AppearanceSettingsView: View {
         title: String,
         image: UIImage?,
         item: Binding<PhotosPickerItem?>,
-        onSave: @escaping (Data) -> Void,
+        cropTarget: CropTarget,
         onClear: @escaping () -> Void
     ) -> some View {
         HStack(spacing: 12) {
@@ -204,11 +227,12 @@ struct AppearanceSettingsView: View {
             }
             .onChange(of: item.wrappedValue) { _, newValue in
                 guard let newValue else { return }
-                // 同背景图：闭包不在 MainActor 上，必须显式标注，
-                // 否则 Binding 与 onSave 都会被判成跨 actor 捕获。
                 Task { @MainActor in
-                    if let data = try? await newValue.loadTransferable(type: Data.self) {
-                        onSave(data)
+                    // 选中图片后进入裁切视图，而不是直接等比缩放保存
+                    if let data = try? await newValue.loadTransferable(type: Data.self),
+                       let ui = UIImage(data: data) {
+                        self.cropTarget = cropTarget
+                        self.cropImage = ui
                     }
                     item.wrappedValue = nil
                 }
@@ -220,4 +244,10 @@ struct AppearanceSettingsView: View {
             }
         }
     }
+}
+
+/// fullScreenCover 的触发载体（UIImage 不可 Identifiable，包一层）。
+struct CropImageItem: Identifiable {
+    let image: UIImage
+    var id: String { image.description }
 }

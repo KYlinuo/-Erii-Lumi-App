@@ -61,6 +61,8 @@ def _isolated_env(monkeypatch, tmp_path):
     monkeypatch.setenv("LUMI_PROVIDER_MODEL", "stub-model-v1")
     monkeypatch.setenv("LUMI_PROVIDER_BASE_URL", "http://stub.invalid")
     monkeypatch.delenv("LUMI_SYSTEM_PROMPT", raising=False)
+    # 主动联系默认关闭（需要启用的测试再单独 monkeypatch）
+    monkeypatch.setenv("LUMI_PROACTIVE_ENABLED", "false")
 
     reload_settings()
     settings = get_settings()

@@ -384,3 +384,18 @@ def _m2026102901(conn: Connection) -> None:
         "ix_memory_recall",
         "CREATE INDEX IF NOT EXISTS ix_memory_recall ON memory_records (status, recall_count)",
     )
+
+
+@migration("2026102902", "记忆固定：pinned 字段")
+def _m2026102902(conn: Connection) -> None:
+    """v2.x：用户可固定重要记忆，固定的记忆检索时权重更高、不受时间衰减。"""
+    cols = _columns(conn, "memory_records")
+    if "pinned" not in cols:
+        conn.execute(
+            text("ALTER TABLE memory_records ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0")
+        )
+    _create_index(
+        conn,
+        "ix_memory_pinned",
+        "CREATE INDEX IF NOT EXISTS ix_memory_pinned ON memory_records (status, pinned)",
+    )

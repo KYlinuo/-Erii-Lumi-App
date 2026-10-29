@@ -86,4 +86,16 @@ final class MemoryViewModel: ObservableObject {
             lastError = .cannotConnectToServer
         }
     }
+
+    /// 固定/取消固定（收藏）一条记忆。固定的记忆不受时间衰减、检索权重更高。
+    func togglePin(_ item: MemoryItem) async {
+        do {
+            _ = try await api.setMemoryPinned(id: item.id, pinned: !item.isPinned)
+            await load()
+        } catch let error as LUMIError {
+            lastError = error
+        } catch {
+            lastError = .cannotConnectToServer
+        }
+    }
 }

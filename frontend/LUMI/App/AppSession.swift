@@ -58,6 +58,8 @@ final class AppSession: ObservableObject {
         await chatViewModel.restoreHistory()
         // 冷启动补拉一次增量，保证 iPhone 与 Windows 看到同一份历史
         try? await chatViewModel.syncFromServer()
+        // 拉取她主动发来的消息（根据记忆/未聊完话题/虚构日常）
+        await chatViewModel.pullProactiveMessages()
         try? await Task.sleep(nanoseconds: 700_000_000)
 
         // 只有在还没有进入聊天页时才切换（用户可能已点「进入对话」）

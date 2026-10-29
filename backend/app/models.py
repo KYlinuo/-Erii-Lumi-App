@@ -382,6 +382,8 @@ class MemoryRecord(Base):
     confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
     salience: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    # 用户手动固定（收藏）的重要记忆：检索时权重更高，不受时间衰减
+    pinned: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # 被成功回忆的次数与最近一次回忆时间：用于"复述加权"
     recall_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_recalled_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
@@ -406,6 +408,7 @@ class MemoryRecord(Base):
             "confidence": self.confidence,
             "salience": self.salience,
             "status": self.status,
+            "pinned": bool(self.pinned),
             "recall_count": self.recall_count,
             "last_recalled_at": _iso(self.last_recalled_at),
             "created_at": _iso(self.created_at),

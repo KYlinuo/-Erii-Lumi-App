@@ -245,6 +245,9 @@ class MemoryOut(BaseModel):
     confidence: float
     salience: int
     status: str
+    pinned: bool = False
+    recall_count: int = 0
+    last_recalled_at: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
 

@@ -110,6 +110,27 @@ def get_messages(db: Session, conversation_id: str, limit: int = 500) -> list[di
     return [m.to_dict() for m in rows]
 
 
+def search_messages(
+    db: Session,
+    conversation_id: str,
+    query: str,
+    limit: int = 50,
+) -> list[dict]:
+    """在指定会话内按关键词搜索消息（大小写不敏感的 LIKE）。"""
+    pattern = f"%{query}%"
+    rows = db.execute(
+        select(Message)
+        .where(
+            Message.conversation_id == conversation_id,
+            Message.deleted_at.is_(None),
+            Message.content.ilike(pattern),
+        )
+        .order_by(Message.created_at.asc(), Message.id.asc())
+        .limit(limit)
+    ).scalars().all()
+    return [m.to_dict() for m in rows]
+
+
 def delete_conversation(db: Session, conversation_id: str) -> bool:
     conv = db.get(Conversation, conversation_id)
     if conv is None:
