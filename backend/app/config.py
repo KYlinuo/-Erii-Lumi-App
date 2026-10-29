@@ -44,7 +44,9 @@ class Settings(BaseSettings):
     # 模型提供方（OpenAI 兼容）
     provider: str = "deepseek"
     provider_base_url: str = "https://api.deepseek.com"
-    provider_model: str = "deepseek-chat"
+    # 默认 DeepSeek-V4.1-Flash-1017（官方模型名 deepseek-flash）。
+    # 模型名可随时通过 LUMI_PROVIDER_MODEL 覆盖，无需改代码。
+    provider_model: str = "deepseek-flash"
     api_key: str | None = None
     provider_timeout_seconds: float = 60.0
     system_prompt: str = (
@@ -66,6 +68,12 @@ class Settings(BaseSettings):
     asr_model: str = ""
     tts_model: str = ""
     tts_voice: str = "alloy"
+
+    # ---- v2.0：实时通话（LiveKit / WebRTC）----
+    # 三者都填上才算「已配置」；留空则通话按钮只展示说明，不产生费用。
+    livekit_url: str = ""
+    livekit_api_key: str = ""
+    livekit_api_secret: str = ""
 
     # CORS
     cors_origins: str = ""

@@ -36,6 +36,18 @@ final class AppearanceStore: ObservableObject {
     @Published private(set) var myAvatar: UIImage?
     @Published private(set) var characterAvatar: UIImage?
 
+    // MARK: - App 图标
+
+    /// 当前选中的图标（写回时触发系统图标切换）。
+    @Published var iconChoice: AppIconChoice {
+        didSet {
+            defaults.set(iconChoice.rawValue, forKey: Keys.icon)
+            Task { @MainActor in
+                await Self.applyIcon(iconChoice)
+            }
+        }
+    }
+
     private let defaults = UserDefaults.standard
 
     private enum Keys {
@@ -43,6 +55,7 @@ final class AppearanceStore: ObservableObject {
         static let blur = "lumi.appearance.blur"
         static let brightness = "lumi.appearance.brightness"
         static let dim = "lumi.appearance.dim"
+        static let icon = "lumi.appearance.icon"
     }
 
     private enum Files {
@@ -57,7 +70,20 @@ final class AppearanceStore: ObservableObject {
         backgroundBlur = defaults.object(forKey: Keys.blur) as? Double ?? 8
         backgroundBrightness = defaults.object(forKey: Keys.brightness) as? Double ?? 0
         backgroundDim = defaults.object(forKey: Keys.dim) as? Double ?? 0.28
+        let storedIcon = defaults.string(forKey: Keys.icon) ?? AppIconChoice.default.rawValue
+        iconChoice = AppIconChoice(rawValue: storedIcon) ?? .default
         reloadImages()
+    }
+
+    /// 把用户选择应用到系统图标（系统弹窗确认后生效）。
+    @MainActor
+    private static func applyIcon(_ choice: AppIconChoice) async {
+        guard UIApplication.shared.supportsAlternateIcons else { return }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            UIApplication.shared.setAlternateIconName(choice.assetName) { _ in
+                continuation.resume()
+            }
+        }
     }
 
     // MARK: - 目录

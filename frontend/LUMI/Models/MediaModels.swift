@@ -47,3 +47,29 @@ struct SpeechStatusDTO: Decodable, Sendable {
         case notice
     }
 }
+
+/// 实时通话能力状态（GET /api/v1/call/status）。
+struct CallStatusDTO: Decodable, Sendable {
+    let configured: Bool
+    let livekitUrl: String?
+    let sttConfigured: Bool
+    let ttsConfigured: Bool
+    let note: String
+
+    enum CodingKeys: String, CodingKey {
+        case configured
+        case livekitUrl = "livekit_url"
+        case sttConfigured = "stt_configured"
+        case ttsConfigured = "tts_configured"
+        case note
+    }
+}
+
+/// 一次通话的连接信息（POST /api/v1/call/token）。
+struct CallTokenDTO: Decodable, Sendable {
+    let configured: Bool
+    let url: String
+    let token: String
+    let room: String
+    let identity: String
+}

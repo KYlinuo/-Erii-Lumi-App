@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
@@ -117,3 +118,48 @@ def metrics(db: Session = Depends(get_db)):
         },
         "note": "样本只在进程生命周期内有效，重启清零；延迟来自 messages 表持久记录。",
     }
+
+
+# ------------------------------------------------------------------ 模型切换
+#
+# 「模型可修改」：运行时切换模型名（LUMI_PROVIDER_MODEL 的进程内覆盖），
+# 不用重启后端、不用改 .env。默认 deepseek-flash（V4.1-Flash-1017）。
+
+_KNOWN_MODELS = (
+    {"id": "deepseek-flash", "label": "DeepSeek V4.1-Flash-1017（默认，快 + 便宜）"},
+    {"id": "deepseek-v4-pro", "label": "DeepSeek V4-Pro-0813（旗舰，当前路由到 Flash）"},
+)
+
+
+@router.get("/model", tags=["model"], dependencies=[Depends(verify_token)])
+def model_info():
+    from app.llm.factory import current_model
+
+    return {
+        "current": current_model(),
+        "default": get_settings().provider_model,
+        "configured": get_provider().is_configured(),
+        "is_mock": is_mock_provider(),
+        "available": _KNOWN_MODELS,
+    }
+
+
+@router.post("/model", tags=["model"], dependencies=[Depends(verify_token)])
+def model_switch(payload: dict):
+    from app.llm.factory import set_model
+
+    model = (payload.get("model") or "").strip()
+    if not model:
+        return JSONResponse(
+            status_code=422,
+            content={"error": {"code": "invalid_model", "message": "模型名不能为空。", "hint": None}},
+        )
+    set_model(model)
+    return {"current": model, "default": get_settings().provider_model, "configured": get_provider().is_configured()}
+
+
+@router.post("/model/reset", tags=["model"], dependencies=[Depends(verify_token)])
+def model_reset():
+    from app.llm.factory import reset_model
+
+    return {"current": reset_model(), "default": get_settings().provider_model}

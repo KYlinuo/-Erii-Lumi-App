@@ -10,6 +10,7 @@ struct AppearanceSettingsView: View {
 
     var body: some View {
         Form {
+            iconSection
             themeSection
             backgroundSection
             avatarSection
@@ -18,6 +19,42 @@ struct AppearanceSettingsView: View {
         .background(Color(red: 0.08, green: 0.08, blue: 0.14))
         .navigationTitle("外观")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: - App 图标
+
+    private var iconSection: some View {
+        Section("App 图标") {
+            ForEach(AppIconChoice.allCases) { choice in
+                Button {
+                    appearance.iconChoice = choice
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(choice.previewImageName)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 44, height: 44)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(choice.title)
+                                .foregroundStyle(.primary)
+                            Text(choice.subtitle)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if appearance.iconChoice == choice {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(Color(red: 0.72, green: 0.60, blue: 1.0))
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        } footer: {
+            Text("切换后系统会弹出确认框；图标均为 App 内置，不占用你的相册。")
+                .font(.caption2)
+        }
     }
 
     // MARK: - 主题

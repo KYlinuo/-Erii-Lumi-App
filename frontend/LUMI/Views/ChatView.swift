@@ -268,16 +268,16 @@ struct PreviewItem: Identifiable {
 
 // MARK: - 通话能力说明
 
-/// 语音/视频通话的真实状态说明页。
-///
-/// 之所以不做成"假装接通"的界面：实时通话需要后端接入 ASR/TTS（或 WebRTC 服务），
-/// 当前后端没有配置，硬做一个动画界面等于欺骗用户。
+/// 语音/视频通话的入口页：检查 LiveKit 配置状态，
+/// 配置了就提供「发起通话」跳转到真正的 CallView，未配置则说明缺什么。
 struct CallCapabilityView: View {
     enum Kind { case voice, video }
     let kind: Kind
+    @EnvironmentObject private var session: AppSession
     @Environment(\.dismiss) private var dismiss
-    @State private var status: SpeechStatusDTO?
+    @State private var status: CallStatusDTO?
     @State private var loadError: String?
+    @State private var showCall = false
 
     var body: some View {
         NavigationStack {
@@ -289,7 +289,8 @@ struct CallCapabilityView: View {
 
                 Section("当前状态") {
                     if let status {
-                        row("语音识别 ASR", status.asrConfigured ? "已接入" : "未接入")
+                        row("LiveKit 服务", status.configured ? "已配置" : "未配置")
+                        row("语音识别 STT", status.sttConfigured ? "已接入" : "未接入")
                         row("语音合成 TTS", status.ttsConfigured ? "已接入" : "未接入")
                     } else if let loadError {
                         Text(loadError).font(.footnote).foregroundStyle(.secondary)
@@ -298,15 +299,28 @@ struct CallCapabilityView: View {
                     }
                 }
 
-                Section("为什么还不能通话") {
-                    Text("实时通话需要三个条件：后端接入 ASR 把你说的话转成文本、模型生成回复、TTS 把回复念出来。当前后端在这两项上都未配置，所以不做假的通话界面。")
-                        .font(.footnote)
-                }
-
-                Section {
-                    Text("配置方法：在后端 .env 中设置 LUMI_ASR_MODEL 与 LUMI_TTS_MODEL 后重启服务。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                if let status, status.configured {
+                    Section {
+                        Button {
+                            showCall = true
+                        } label: {
+                            Label("发起通话", systemImage: kind == .voice ? "phone.fill" : "video.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .font(.headline)
+                    } footer: {
+                        Text("通话中你的语音会实时转写 → 绘梨衣用 DeepSeek 思考 → 再合成语音回你。")
+                    }
+                } else {
+                    Section("为什么还不能通话") {
+                        Text("实时通话需要一个 LiveKit Server（负责音视频流）+ STT/TTS 服务。这些尚未配置，所以不假装接通。")
+                            .font(.footnote)
+                    }
+                    Section {
+                        Text("配置方法：在后端 .env 中设置 LUMI_LIVEKIT_URL / LUMI_LIVEKIT_API_KEY / LUMI_LIVEKIT_API_SECRET，以及 STT/TTS 模型后重启服务。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .navigationTitle("通话")
@@ -317,6 +331,10 @@ struct CallCapabilityView: View {
                 }
             }
             .task { await load() }
+            .fullScreenCover(isPresented: $showCall) {
+                CallView(kind: kind == .voice ? .voice : .video)
+                    .environmentObject(session)
+            }
         }
     }
 
@@ -325,14 +343,13 @@ struct CallCapabilityView: View {
             Text(title)
             Spacer()
             Text(value)
-                .foregroundStyle(value == "已接入" ? .green : .secondary)
+                .foregroundStyle(value == "已配置" || value == "已接入" ? .green : .secondary)
         }
     }
 
     private func load() async {
         do {
-            let client = LUMIAPIClient(configuration: { ConfigurationStore.load() })
-            status = try await client.speechStatus()
+            status = try await session.api.callStatus()
         } catch {
             loadError = "无法连接后端，请先在电脑上启动服务。"
         }

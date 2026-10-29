@@ -462,6 +462,21 @@ final class LUMIAPIClient: Sendable {
         try await get("/api/v1/speech/status")
     }
 
+    // MARK: - 实时通话（LiveKit）
+
+    /// 通话能力状态。
+    func callStatus() async throws -> CallStatusDTO {
+        try await get("/api/v1/call/status")
+    }
+
+    /// 为一次通话签发 LiveKit token（后端未配置时抛 providerNotConfigured 类错误）。
+    func callToken(identity: String = "ios-user") async throws -> CallTokenDTO {
+        struct Body: Encodable, Sendable {
+            let identity: String
+        }
+        return try await post("/api/v1/call/token", body: Body(identity: identity))
+    }
+
     /// 下载媒体原始字节（图片气泡 / 语音播放用）。
     func downloadMedia(mediaID: String) async throws -> Data {
         let request = try makeRequest(path: "/api/v1/media/\(mediaID)", method: "GET", body: nil as Data?)

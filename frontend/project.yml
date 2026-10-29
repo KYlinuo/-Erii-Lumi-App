@@ -27,6 +27,11 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     GENERATE_INFOPLIST_FILE: "NO"
 
+packages:
+  LiveKit:
+    url: https://github.com/livekit/client-sdk-swift
+    from: "2.19.0"
+
 targets:
   LUMI:
     type: application
@@ -35,6 +40,8 @@ targets:
       - path: LUMI
         excludes:
           - "Info.plist"
+    dependencies:
+      - package: LiveKit
     settings:
       base:
         # 用工程里手写的 Info.plist 作为唯一事实来源。

@@ -224,3 +224,46 @@ def speech_status():
         "mock": not (speech.asr_configured() and speech.tts_configured()),
         "notice": "未接入语音服务时使用 Mock，返回内容会显式标注，不会冒充真实识别结果。",
     }
+
+
+# ------------------------------------------------------------------ 实时通话
+#
+# LiveKit 语音/视频通话：签发用户侧 Access Token 供 iOS SDK 连接房间。
+# 未配置 LiveKit 时返回 configured=false，客户端只显示说明、不发起连接。
+
+call_router = APIRouter(
+    prefix="/api/v1/call",
+    tags=["call"],
+    dependencies=[Depends(verify_token), rate_limit("default")],
+)
+
+
+@call_router.get("/status")
+def call_status():
+    from app import livekit as livekit_mod
+
+    return livekit_mod.call_status()
+
+
+@call_router.post("/token")
+def call_token(payload: dict):
+    from app import livekit as livekit_mod
+
+    identity = (payload.get("identity") or "").strip() or "ios-user"
+    room = (payload.get("room") or "").strip() or f"lumi-{identity}"
+    result = livekit_mod.issue_call_token(
+        identity=identity, room=room, character_name=payload.get("character_name") or "绘梨衣"
+    )
+    if not result.get("configured"):
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "error": {
+                    "code": "call_not_configured",
+                    "message": "实时通话尚未配置（缺 LiveKit Server）。",
+                    "hint": "在 .env 中设置 LUMI_LIVEKIT_URL / LUMI_LIVEKIT_API_KEY / LUMI_LIVEKIT_API_SECRET。",
+                }
+            },
+            headers={"X-LUMI-Error-Code": "call_not_configured"},
+        )
+    return result

@@ -19,6 +19,9 @@ from app.llm.mock import MockProvider
 from app.llm.openai_compat import OpenAICompatibleProvider
 
 _provider: LLMProvider | None = None
+# 运行时模型覆盖：通过 POST /api/v1/model 切换，无需重启。
+# 为空时回落到配置里的 provider_model（默认 deepseek-flash）。
+_model_override: str | None = None
 
 
 def build_provider() -> LLMProvider:
@@ -29,7 +32,7 @@ def build_provider() -> LLMProvider:
     return OpenAICompatibleProvider(
         name=s.provider,
         base_url=s.provider_base_url,
-        model=s.provider_model,
+        model=current_model(),
         api_key=s.api_key,
         timeout=s.provider_timeout_seconds,
     )
@@ -48,8 +51,34 @@ def set_provider(provider: LLMProvider | None) -> None:
     _provider = provider
 
 
+def current_model() -> str:
+    """当前生效的模型名：运行时覆盖优先，否则回落配置。"""
+    return _model_override or get_settings().provider_model
+
+
+def set_model(model: str | None) -> str:
+    """切换模型名（运行时覆盖）。返回切换后的模型名。"""
+    global _model_override, _provider
+    _model_override = (model or "").strip() or None
+    _provider = None  # 强制下次调用时按新模型重建
+    return current_model()
+
+
+def reset_model() -> str:
+    """清除运行时覆盖，回到配置文件里的默认模型。"""
+    return set_model(None)
+
+
 def is_mock_provider(provider: LLMProvider | None = None) -> bool:
     return isinstance(provider or get_provider(), MockProvider)
 
 
-__all__ = ["build_provider", "get_provider", "set_provider", "is_mock_provider"]
+__all__ = [
+    "build_provider",
+    "get_provider",
+    "set_provider",
+    "current_model",
+    "set_model",
+    "reset_model",
+    "is_mock_provider",
+]
