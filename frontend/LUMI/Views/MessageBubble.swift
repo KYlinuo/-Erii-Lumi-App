@@ -16,6 +16,8 @@ struct MessageBubble: View {
     var onPreviewImage: ((UIImage) -> Void)?
     var onSpeak: ((ChatMessage) -> Void)?
     var onStar: ((ChatMessage) -> Void)?
+    /// 双击放大文字（需求 04）
+    var onZoomText: ((String) -> Void)?
 
     @ObservedObject private var mediaStore = MediaStore.shared
     @StateObject private var player = AudioPlayer()
@@ -132,6 +134,8 @@ struct MessageBubble: View {
                     .strokeBorder(strokeColor, lineWidth: 0.8)
             )
             .opacity(message.status == .sending ? 0.72 : 1)
+            // 双击放大文字（需求 04）
+            .onTapGesture(count: 2) { onZoomText?(message.content) }
             .contextMenu { menu }
     }
 

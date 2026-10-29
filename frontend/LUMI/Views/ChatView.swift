@@ -16,6 +16,12 @@ struct ChatView: View {
     @State private var showSearch = false
     @State private var scrollTarget: UUID?
     @StateObject private var ttsPlayer = AudioPlayer()
+    /// 是否在消息底部（用于「浏览历史不被新消息拉底」）
+    @State private var isAtBottom = true
+    /// 未读新消息数（用户上翻时累积，回到底部清零）
+    @State private var unreadCount = 0
+    /// 双击放大文字的内容
+    @State private var zoomedText: String?
 
     enum CallKind { case voice, video }
 
@@ -85,6 +91,14 @@ struct ChatView: View {
         .fullScreenCover(item: $previewImage) { item in
             ImagePreviewView(image: item.image)
         }
+        .sheet(isPresented: Binding(
+            get: { zoomedText != nil },
+            set: { if !$0 { zoomedText = nil } }
+        )) {
+            if let text = zoomedText {
+                ZoomedTextView(text: text)
+            }
+        }
         .onChange(of: viewModel.lastError) { _, _ in dismissError = false }
         // 聊天页保持深色（壁纸 + 气泡是深色风格），其他页面跟随系统。
         .preferredColorScheme(.dark)
@@ -134,7 +148,8 @@ struct ChatView: View {
                             onDelete: { viewModel.delete(messageID: $0.id) },
                             onPreviewImage: { previewImage = PreviewItem(image: $0) },
                             onSpeak: { speak($0) },
-                            onStar: { toggleStar($0) }
+                            onStar: { toggleStar($0) },
+                            onZoomText: { zoomedText = $0 }
                         )
                         .id(message.id)
                         .padding(.bottom, meta.spacingBelow)
@@ -142,14 +157,30 @@ struct ChatView: View {
                     if viewModel.isSending {
                         TypingIndicator().id("typing")
                     }
+                    // 底部标记：可见=在底部；滚出屏幕=在往上翻历史。
+                    Color.clear
+                        .frame(height: 1)
+                        .id("bottom-marker")
+                        .onAppear {
+                            isAtBottom = true
+                            unreadCount = 0
+                        }
+                        .onDisappear { isAtBottom = false }
                 }
                 .padding(.top, 8)
                 .padding(.bottom, 6)
             }
             .scrollDismissesKeyboard(.immediately)
-            .onChange(of: viewModel.messages.count) { _, _ in scrollToBottom(proxy) }
+            .onChange(of: viewModel.messages.count) { _, newCount in
+                if isAtBottom {
+                    scrollToBottom(proxy)
+                } else {
+                    // 用户在翻历史：不拉底，只累计未读提示
+                    unreadCount += 1
+                }
+            }
             .onChange(of: viewModel.isSending) { _, sending in
-                if sending { scrollToBottom(proxy) }
+                if sending && isAtBottom { scrollToBottom(proxy) }
             }
             .onChange(of: scrollTarget) { _, target in
                 if let target {
@@ -167,7 +198,35 @@ struct ChatView: View {
                         .foregroundStyle(.white.opacity(0.7))
                 }
             }
+            .overlay(alignment: .bottom) {
+                if unreadCount > 0 {
+                    newMessageBadge(proxy)
+                }
+            }
         }
+    }
+
+    /// 新消息提示：点击回到底部并清零未读。
+    private func newMessageBadge(_ proxy: ScrollViewProxy) -> some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.2)) {
+                scrollToBottom(proxy)
+            }
+            unreadCount = 0
+            isAtBottom = true
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.down")
+                Text(unreadCount > 99 ? "99+ 条新消息" : "\(unreadCount) 条新消息")
+            }
+            .font(.caption.weight(.medium))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(.white.opacity(0.15), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .padding(.bottom, 10)
     }
 
     /// 连续消息合并：同一个人、间隔小于 3 分钟算一组
@@ -325,6 +384,49 @@ struct ImagePreviewView: View {
 struct PreviewItem: Identifiable {
     let id = UUID()
     let image: UIImage
+}
+
+/// 双击消息后的「放大文字」视图（需求 04）：大字、可复制、可调整字号。
+struct ZoomedTextView: View {
+    let text: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var fontSize: CGFloat = 22
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                Text(text)
+                    .font(.system(size: fontSize, weight: .regular))
+                    .textSelection(.enabled)
+                    .lineSpacing(6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(20)
+            }
+            .background(LUMIStyle.pageBackground)
+            .navigationTitle("文字")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("关闭") { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    HStack(spacing: 14) {
+                        Button { fontSize = max(16, fontSize - 2) } label: {
+                            Image(systemName: "textformat.size.smaller")
+                        }
+                        Button { fontSize = min(40, fontSize + 2) } label: {
+                            Image(systemName: "textformat.size.larger")
+                        }
+                        Button {
+                            UIPasteboard.general.string = text
+                        } label: {
+                            Image(systemName: "doc.on.doc")
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // MARK: - 通话能力说明

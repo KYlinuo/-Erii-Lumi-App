@@ -67,6 +67,7 @@ struct LockScreenView: View {
 }
 
 /// 主界面：原生 TabView + 统一视觉。
+/// 36 项需求 01：主入口收敛为「聊天 / 小本子 / 我」。
 struct MainTabs: View {
     @EnvironmentObject private var session: AppSession
 
@@ -78,26 +79,18 @@ struct MainTabs: View {
                     Label("聊天", systemImage: "bubble.left.and.bubble.right.fill")
                 }
 
-            ProfileView(viewModel: session.personaViewModel)
+            NotebookView()
+                .environmentObject(session)
                 .environmentObject(session.chatViewModel)
                 .tabItem {
-                    Label("人物", systemImage: "person.crop.circle.fill")
+                    Label("小本子", systemImage: "book.closed.fill")
                 }
 
-            MemoryView(viewModel: session.memoryViewModel)
-                .tabItem {
-                    Label("记忆", systemImage: "brain")
-                }
-
-            DiaryView(viewModel: session.diaryViewModel)
-                .tabItem {
-                    Label("日记", systemImage: "book.closed.fill")
-                }
-
-            SettingsView()
+            MeView()
+                .environmentObject(session)
                 .environmentObject(session.chatViewModel)
                 .tabItem {
-                    Label("设置", systemImage: "gearshape.fill")
+                    Label("我", systemImage: "person.crop.circle.fill")
                 }
         }
         .tint(LUMIStyle.violet)
