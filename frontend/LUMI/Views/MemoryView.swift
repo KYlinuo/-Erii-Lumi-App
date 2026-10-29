@@ -190,7 +190,7 @@ struct MemoryView: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(LUMIStyle.ink)
+            .background(LUMIStyle.pageBackground)
             .navigationTitle("新增记忆")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

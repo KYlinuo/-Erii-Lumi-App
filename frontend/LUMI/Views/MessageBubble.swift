@@ -276,11 +276,9 @@ struct MessageBubble: View {
             Text("离线")
                 .font(LUMIStyle.Font.bubbleMeta)
                 .foregroundStyle(.secondary)
-        } else if let model = message.model {
-            Text(model)
-                .font(LUMIStyle.Font.bubbleMeta)
-                .foregroundStyle(.white.opacity(0.28))
         }
+        // 注意：不再显示 model 字段。旧数据里的 model 名（如 mock-provider-v1）
+        // 是调试残留，对用户没有意义，还会暴露内部实现。真实模型状态统一在设置页看。
     }
 
     // MARK: - 长按菜单

@@ -70,6 +70,8 @@ struct ChatView: View {
             ImagePreviewView(image: item.image)
         }
         .onChange(of: viewModel.lastError) { _, _ in dismissError = false }
+        // 聊天页保持深色（壁纸 + 气泡是深色风格），其他页面跟随系统。
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - 顶部
@@ -126,7 +128,7 @@ struct ChatView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 6)
             }
-            .scrollDismissesKeyboard(.interactively)
+            .scrollDismissesKeyboard(.immediately)
             .onChange(of: viewModel.messages.count) { _, _ in scrollToBottom(proxy) }
             .onChange(of: viewModel.isSending) { _, sending in
                 if sending { scrollToBottom(proxy) }

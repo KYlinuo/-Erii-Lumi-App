@@ -85,7 +85,10 @@ struct ComposerBar: View {
                 }
 
                 if canSend {
-                    Button(action: onSend) {
+                    Button {
+                        focused = false  // 发送后收起键盘
+                        onSend()
+                    } label: {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 29))
                             .foregroundStyle(Color(red: 0.72, green: 0.60, blue: 1.0))

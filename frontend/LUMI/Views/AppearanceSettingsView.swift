@@ -16,7 +16,7 @@ struct AppearanceSettingsView: View {
             avatarSection
         }
         .scrollContentBackground(.hidden)
-        .background(Color(red: 0.08, green: 0.08, blue: 0.14))
+        .background(LUMIStyle.pageBackground)
         .navigationTitle("外观")
         .navigationBarTitleDisplayMode(.inline)
     }

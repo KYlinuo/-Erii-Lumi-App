@@ -45,7 +45,7 @@ struct ModelStatusView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background(Color(red: 0.08, green: 0.08, blue: 0.14))
+        .background(LUMIStyle.pageBackground)
         .navigationTitle("模型")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }

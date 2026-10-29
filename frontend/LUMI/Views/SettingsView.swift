@@ -27,7 +27,7 @@ struct SettingsView: View {
                 aboutSection
             }
             .scrollContentBackground(.hidden)
-            .background(Color(red: 0.08, green: 0.08, blue: 0.14))
+            .background(LUMIStyle.pageBackground)
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -38,7 +38,6 @@ struct SettingsView: View {
             }
             .task { await viewModel.checkConnection() }
         }
-        .preferredColorScheme(.dark)
     }
 
     // MARK: - 外观 / 模型入口

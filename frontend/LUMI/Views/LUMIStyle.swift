@@ -13,6 +13,17 @@ enum LUMIStyle {
     static let aqua = Color(red: 0.56, green: 0.86, blue: 0.98)
     static let mint = Color(red: 0.62, green: 0.92, blue: 0.82)
 
+    /// 非聊天页的页面底色：跟随系统浅色/深色模式。
+    /// 浅色模式 = 白色；深色模式 = 黑色，无需手动维护两套配色。
+    static var pageBackground: Color {
+        Color(uiColor: .systemGroupedBackground)
+    }
+
+    /// 非聊天页的卡片底色。
+    static var pageCardBackground: Color {
+        Color(uiColor: .secondarySystemGroupedBackground)
+    }
+
     /// 页面底色：深夜蓝紫渐变，顶部略亮，模拟柔光。
     static var background: some View {
         LinearGradient(
