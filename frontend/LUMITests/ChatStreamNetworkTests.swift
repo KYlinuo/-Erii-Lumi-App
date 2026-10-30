@@ -15,6 +15,18 @@ final class ChatStreamNetworkTests: XCTestCase {
         })
     }
 
+    /// 非流式 JSON mock：ChatViewModel 走 sendMessage（非流式），返回 JSON 或断线错误。
+    @MainActor
+    private func jsonAPI(_ path: String) -> LUMIAPIClient {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [JSONURLProtocol.self]
+        let session = URLSession(configuration: config)
+        let baseURL = URL(string: "https://json-test.invalid/\(path)")!
+        return LUMIAPIClient(session: session, configuration: {
+            ServerConfiguration(baseURL: baseURL)
+        })
+    }
+
     @MainActor
     func testCallbacksAreOrderedAndAwaited() async throws {
         var events: [String] = []
@@ -73,7 +85,9 @@ final class ChatStreamNetworkTests: XCTestCase {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = MessageStore(directory: directory)
-        let replay = ChatViewModel(api: api("done-only"), store: store)
+
+        // 幂等重放：非流式返回 idempotent_replay，客户端呈现「用户消息 + 助手回复」
+        let replay = ChatViewModel(api: jsonAPI("replay"), store: store)
         replay.send(text: "你好")
         for _ in 0..<200 where replay.isSending { try await Task.sleep(for: .milliseconds(10)) }
         XCTAssertFalse(replay.isSending)
@@ -81,7 +95,8 @@ final class ChatStreamNetworkTests: XCTestCase {
         XCTAssertTrue(replay.messages.allSatisfy { $0.status == .sent })
         XCTAssertEqual(replay.messages.last?.serverID, "a1")
 
-        let cutoff = ChatViewModel(api: api("cutoff"), store: store)
+        // 断线失败：用户消息标记失败，不产生助手气泡，lastError 准确
+        let cutoff = ChatViewModel(api: jsonAPI("fail"), store: store)
         cutoff.send(text: "测试断线")
         for _ in 0..<200 where cutoff.isSending { try await Task.sleep(for: .milliseconds(10)) }
         XCTAssertFalse(cutoff.isSending)
@@ -89,6 +104,35 @@ final class ChatStreamNetworkTests: XCTestCase {
         XCTAssertEqual(cutoff.messages.first?.status, .failed)
         XCTAssertEqual(cutoff.lastError, .connectionLost)
     }
+}
+
+/// 非流式 JSON mock：ChatViewModel 走 sendMessage（非流式），返回 JSON ChatResponse 或断线错误。
+private final class JSONURLProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool {
+        request.url?.host == "json-test.invalid"
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let path = request.url?.path ?? ""
+        if path.contains("fail") {
+            client?.urlProtocol(self, didFailWithError: URLError(.networkConnectionLost))
+            return
+        }
+        let json = """
+        {"conversation_id":"c1","user_message_id":"u1","assistant_message_id":"a1","reply":"你好","model":"test","latency_ms":0,"idempotent_replay":true,"is_mock":false}
+        """
+        let response = HTTPURLResponse(
+            url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(json.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }
 
 private final class StreamURLProtocol: URLProtocol, @unchecked Sendable {
