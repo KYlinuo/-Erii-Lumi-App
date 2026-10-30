@@ -1,0 +1,355 @@
+{
+  "source": "Erii-2.1.0-Source-WorkBuddy-5H.zip",
+  "removed_files": [
+    {
+      "path": "dist/LUMI-2.0.0.ipa",
+      "bytes": 16672301,
+      "sha256": "1858fd4e19d34ab20c0e95408cdf4a1d70e6b62f2517a562dfd0e3b0b9d22de1",
+      "reason": "旧版本构建产物；无法代表本版源码编译结果。"
+    },
+    {
+      "path": "dist/LUMI-2.0.0-fallback.ipa",
+      "bytes": 482673,
+      "sha256": "bdbecb0747d8fdbe174d13045c26a4033930a0f3352df443484e06d686f22bc3",
+      "reason": "旧版本构建产物；无法代表本版源码编译结果。"
+    },
+    {
+      "path": "dist/LUMI-unsigned.ipa",
+      "bytes": 480211,
+      "sha256": "504d8df8d03b716ea03373d6249410a1323aee74f799c4999d5031b854eb3cdc",
+      "reason": "旧版本构建产物；无法代表本版源码编译结果。"
+    },
+    {
+      "path": ".night-backup/lumi.db.20261027-230719.bak",
+      "bytes": 28672,
+      "sha256": "940a865b7fc5851f80756bac276f8159567a6129c5062796ac6f0ff1d8fae1b7",
+      "reason": "历史重复备份；原始输入 ZIP 可恢复，当前活动数据库保留不变。"
+    },
+    {
+      "path": "backend/.agent_relay/state.json",
+      "bytes": 1493,
+      "sha256": "b857012ad465bf8a595d1416d25ddc70686776066b6ee64fb6b58edf1b6f121b",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/af95fc4760410043.json",
+      "bytes": 536,
+      "sha256": "64729b5f6ac2509df116d52fa37b4660be8519d87236b8912f388a86db721460",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/e964e3bce23dbd20.json",
+      "bytes": 394,
+      "sha256": "c13fcb47b0923354299d048861d9fc7da3e19a8b7398c76208c4fbaa4b1104df",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/3b6d68d6b35b4cf8.json",
+      "bytes": 343,
+      "sha256": "3b02d2351912f6ab12bcaaf624e190a0d832a609309ff67047b3ebb92198ae2e",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/0bcbbb3fabc7f593.json",
+      "bytes": 494,
+      "sha256": "01ed950b93fbe525a86a1b862ad364d1f99e26eec565d9eca31d2a68241c353c",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/991ed716d2ea2839.json",
+      "bytes": 607,
+      "sha256": "9f214f4542073c70caddcaf9097382b31715c171dbbe1ed734e2e2e493325423",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/7d2ebc25b4599e79.json",
+      "bytes": 607,
+      "sha256": "27fa83928a4e064b4e32402ec10f1cf13dd8648d6871944a48a2aa71f2e129b7",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/98cb2e4f9760665b.json",
+      "bytes": 343,
+      "sha256": "a8b9d8a3af37641a142b4e6f3bb8fc9dd896118f376cbc1cafd483b48e8ce954",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/9b4f30848b92965a.json",
+      "bytes": 555,
+      "sha256": "f8e885bfefd56ab432a9b93d57d32fab7aa39892ea569801cc382f9186e2e469",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/f8a1955fabbc33f3.json",
+      "bytes": 353,
+      "sha256": "96e2a37ba9fe4db6f952a048b056e95f28b77296e8b31a816ca663876a10f54d",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/15c7fcdaa4f34b87.json",
+      "bytes": 529,
+      "sha256": "12f6e00f7ac96a4db3c9120a023f44a997b42b59c294d7851862abf0a006b5f6",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/d58df5742742eae3.json",
+      "bytes": 495,
+      "sha256": "e35988214855492aabc29eaa0e65ee749081414192863ef8a0986acc247cea0c",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/abed3a0794f5d238.json",
+      "bytes": 555,
+      "sha256": "fa5e572c3b92847e7ae8808a6ebb480efd944fb4ebd03525d67137c7ab7decba",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/ef89807de7073a68.json",
+      "bytes": 354,
+      "sha256": "5eb72cabb151eb834832758b676954f6ad8df25e2df7357ac0d3d947c985bbc7",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/5ab7119aa522f2ff.json",
+      "bytes": 394,
+      "sha256": "d645dd44a4bf18225559183fbe66d82ef60290ee46996721895ddfee8f0fefef",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/af09988eaaf7991a.json",
+      "bytes": 532,
+      "sha256": "eb7b577dfd6ab49e329ff6186ac91a01ba1abfb6378983041ec2f5ce29e01c87",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/7af774f31bd79384.json",
+      "bytes": 529,
+      "sha256": "ec5a872759c449fdf213f29d885fd1614a84f953eaf641684a6ae176cc9eba43",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/9c06fd552ecb60e0.json",
+      "bytes": 531,
+      "sha256": "45f48ee0d40795ee7668db77496ae500dbfb6a6eaf2cf58a502c3f895ae52f82",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/inbox/2606dd02d9dc6ccc.json",
+      "bytes": 537,
+      "sha256": "d831cb069ceb0428776c92b2ffc88da2237d3b929e91decc4ae98050b44c9ce7",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/af95fc4760410043.json",
+      "bytes": 3778,
+      "sha256": "e67a74c44f77831c31aebf4d2baedd176bc67ca775ada09dc0ac0e868ddc4a7d",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/e964e3bce23dbd20.json",
+      "bytes": 3696,
+      "sha256": "41dc68a2e996e1039b29e8340c750d42843652b5dda7ff8b8657d7d0b5ab0ff1",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/3b6d68d6b35b4cf8.json",
+      "bytes": 3268,
+      "sha256": "6cef870f513815844713388f8f54242b92549828b37e942a0223f728e9732b30",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/0bcbbb3fabc7f593.json",
+      "bytes": 4948,
+      "sha256": "85eeab76a69196a1e142b42856d7001cce7eb62462de08a0ad92f265f509dfbd",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/991ed716d2ea2839.json",
+      "bytes": 4503,
+      "sha256": "a1d2c0d2fb04a338af8db06a1426ece299ba1f26d06e101de187d83b9c226406",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/7d2ebc25b4599e79.json",
+      "bytes": 4028,
+      "sha256": "58b78ba2ca0a8d4644b6f0c9d9d7d407c6212e9e3d83e5587fe5f7f9c9a1fd54",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/98cb2e4f9760665b.json",
+      "bytes": 3133,
+      "sha256": "2ab79fd0ab9aabce00ed5edf8335914b569c52d9c1afe19f8d7869e93dcceb99",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/9b4f30848b92965a.json",
+      "bytes": 3504,
+      "sha256": "2f5e24393b2f71078c0fb3c727dc9b7d5dc9beabef1078199b77b60489ae1375",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/f8a1955fabbc33f3.json",
+      "bytes": 3268,
+      "sha256": "97ad1bd53fef98647df98e04064619f29d5cefd195056fe7d56a50b9b7898c18",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/15c7fcdaa4f34b87.json",
+      "bytes": 4134,
+      "sha256": "ac243982044e68b095ac797f040928667bd062b621152c753ffd41e48e9e2513",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/d58df5742742eae3.json",
+      "bytes": 4135,
+      "sha256": "4d5cd4195d4efda0894b9c9cac9a03d0bd11aaa4f3c622af00a9941ee23bbb1e",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/abed3a0794f5d238.json",
+      "bytes": 3697,
+      "sha256": "532fd3063fccbe50dfef859159565156acc5b148d4bf12e71b4a5ef23bf5501f",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/ef89807de7073a68.json",
+      "bytes": 3450,
+      "sha256": "5d65fb8fa0e35986484933f31325625ab94388e2faefda9c78e50b1f0b8e95e5",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/5ab7119aa522f2ff.json",
+      "bytes": 4091,
+      "sha256": "3af2b7de766c6b665e4994659e4eb309c31ebb5f43d1a2d4e44539c94d751b1e",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/af09988eaaf7991a.json",
+      "bytes": 3777,
+      "sha256": "f8d0b9170fd14661174764d580fb9a54cda27a281a1109cbe4c130e8cdcdb647",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/7af774f31bd79384.json",
+      "bytes": 3846,
+      "sha256": "aca9ae9af388f9ff5cc38e09dc8b930cfbe21b34410dd8a4e383598f1f706d6b",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/9c06fd552ecb60e0.json",
+      "bytes": 4153,
+      "sha256": "0c170f679dcb37e2f26e16c40412833481941e257c5d17800cad1d7ac6e48fb3",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/.agent_relay/outbox/2606dd02d9dc6ccc.json",
+      "bytes": 3647,
+      "sha256": "0c53d402d97deb486cb0b6a509f5675d0992c6c4974fee0cc54bd063310d23e6",
+      "reason": "本地 relay 运行队列/状态；不是源码，运行时按需重建。"
+    },
+    {
+      "path": "backend/data/relay_demo.db",
+      "bytes": 192512,
+      "sha256": "f0da4cae62c78045010022b3fdf4460a1deb8b3ebf4fc3ba977260a94f0b05eb",
+      "reason": "演示数据库或运行记录；当前活动数据库不是此文件。"
+    },
+    {
+      "path": "backend/data/relay_transcript.json",
+      "bytes": 4862,
+      "sha256": "a8bc87ea823e2092fa6cbd2899d4a2c4a83f0cf0010c97a4047c888314b9f986",
+      "reason": "演示数据库或运行记录；当前活动数据库不是此文件。"
+    },
+    {
+      "path": "backend/data/backups/lumi-20261029-211915.db",
+      "bytes": 212992,
+      "sha256": "3f2b48946a7e538dba6866bed65dc72d27e0c53bfb71c2e3041aa34b324771b6",
+      "reason": "历史重复备份；原始输入 ZIP 可恢复，当前活动数据库保留不变。"
+    },
+    {
+      "path": "backend/data/backups/lumi-before-codex-20261030.db",
+      "bytes": 212992,
+      "sha256": "0402e2bce1af7e1bd72dc56d8c7664cbc87043e5d8d95a3111d6eec694240090",
+      "reason": "历史重复备份；原始输入 ZIP 可恢复，当前活动数据库保留不变。"
+    },
+    {
+      "path": "docs/NEXT_MORNING.md",
+      "bytes": 11000,
+      "sha256": "5557d9ec62f4d4392d3cbd84d5c165a48d0d52723113bced44172605d258db9a",
+      "reason": "过期交付/夜间/验证记录，由 2.1.1 报告与本轮证据替代；历史可从输入 ZIP 恢复。"
+    },
+    {
+      "path": "docs/NIGHT_PROGRESS.md",
+      "bytes": 6676,
+      "sha256": "d2e4cbb7b51c8fed818ad6a35be46990c739aa84a34e799501f1bd5d194d8896",
+      "reason": "过期交付/夜间/验证记录，由 2.1.1 报告与本轮证据替代；历史可从输入 ZIP 恢复。"
+    },
+    {
+      "path": "docs/NIGHT_REPORT.md",
+      "bytes": 12302,
+      "sha256": "04015af1f3e715328e1ed8a9ef57f27ec5f2fa35d85fbd61aecdf95ef736fae8",
+      "reason": "过期交付/夜间/验证记录，由 2.1.1 报告与本轮证据替代；历史可从输入 ZIP 恢复。"
+    },
+    {
+      "path": "docs/NIGHT_TASK_QUEUE.md",
+      "bytes": 6064,
+      "sha256": "ac1eca80c1e551928fb9085e3c6486ad739c25787d51b2d7acf4000622f73616",
+      "reason": "过期交付/夜间/验证记录，由 2.1.1 报告与本轮证据替代；历史可从输入 ZIP 恢复。"
+    },
+    {
+      "path": "docs/ERII_V2_REPORT.md",
+      "bytes": 5565,
+      "sha256": "f998b6c9079388636fec0e36e4d6750f148b3056d51fdd998edab0563e52eddf",
+      "reason": "过期交付/夜间/验证记录，由 2.1.1 报告与本轮证据替代；历史可从输入 ZIP 恢复。"
+    },
+    {
+      "path": "docs/V2_REPORT.md",
+      "bytes": 11981,
+      "sha256": "a134a2d4eff7b3940e780be83aebcf2773cf4178d1a1404c56b8e9e30e284c03",
+      "reason": "过期交付/夜间/验证记录，由 2.1.1 报告与本轮证据替代；历史可从输入 ZIP 恢复。"
+    },
+    {
+      "path": "docs/ERII_NEXT_STEPS.md",
+      "bytes": 3063,
+      "sha256": "a14db69e2039efca4bd24a020348b9fcd07c459a0ccd86883d97b221b15524dc",
+      "reason": "过期交付/夜间/验证记录，由 2.1.1 报告与本轮证据替代；历史可从输入 ZIP 恢复。"
+    },
+    {
+      "path": "docs/TEST_REPORT.md",
+      "bytes": 17025,
+      "sha256": "8889927a8310fdc6fd167b8b79c4fd49e9f8705ad1cf2a51d87fac68ddfdb825",
+      "reason": "过期交付/夜间/验证记录，由 2.1.1 报告与本轮证据替代；历史可从输入 ZIP 恢复。"
+    },
+    {
+      "path": "docs/PYTEST_RESULT.txt",
+      "bytes": 351,
+      "sha256": "1570d45e21c28a0fdba87808139a1eee35e756f4102f3a08c77a39789c64c3c6",
+      "reason": "过期交付/夜间/验证记录，由 2.1.1 报告与本轮证据替代；历史可从输入 ZIP 恢复。"
+    },
+    {
+      "path": "docs/SWIFT_STATIC_CHECK.txt",
+      "bytes": 475,
+      "sha256": "03dfe7782266c4af4712f952f2fa34d6c0ce45861d894f0a3b426ecc81482b2e",
+      "reason": "过期交付/夜间/验证记录，由 2.1.1 报告与本轮证据替代；历史可从输入 ZIP 恢复。"
+    },
+    {
+      "path": "scripts/github_publish.ps1",
+      "bytes": 2822,
+      "sha256": "dbe5987d08da314dd474bd488240152de9169eadce73a534eeda2267556f5a17",
+      "reason": "过期发布辅助脚本；当前构建流程未引用，保留有效 CI 与部署脚本。"
+    },
+    {
+      "path": "docs/RELEASE_2.1.0.md",
+      "bytes": 5019,
+      "sha256": "d685adb89c3c37a18331f56783d327e0ab0397812d13eba30072c6989dd8abeb",
+      "reason": "过期交付/夜间/验证记录，由 2.1.1 报告与本轮证据替代；历史可从输入 ZIP 恢复。"
+    },
+    {
+      "path": "docs/DATABASE_VERIFICATION.json",
+      "bytes": 373,
+      "sha256": "28b4146d4b1e42401be3c12813b10883ede52b17216b22601061609d969ad538",
+      "reason": "过期交付/夜间/验证记录，由 2.1.1 报告与本轮证据替代；历史可从输入 ZIP 恢复。"
+    }
+  ],
+  "removed_bytes": 18449168,
+  "recovery": "Original Erii-2.1.0 source ZIP / previous Library version. Active backend/data/lumi.db is unchanged. No .env files were present; .env.example is retained."
+}

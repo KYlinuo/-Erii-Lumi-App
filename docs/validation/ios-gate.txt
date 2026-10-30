@@ -1,0 +1,4 @@
+bash -n: passed
+Linux invocation exit: 2
+Missing xcodebuild. Run this script on a Mac with Xcode and XcodeGen.
+Not a device build or XCTest run.

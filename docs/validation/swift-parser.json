@@ -1,0 +1,7 @@
+{
+  "tool": "tree-sitter 0.26.0 / tree-sitter-swift 0.7.4",
+  "files": 56,
+  "errors": [],
+  "passed": true,
+  "scope": "Syntax only; no Swift type checking, actor isolation or SDK validation"
+}

@@ -1,0 +1,553 @@
+import Foundation
+import SwiftUI
+
+@MainActor
+final class ChatViewModel: ObservableObject {
+    @Published private(set) var messages: [ChatMessage] = []
+    @Published private(set) var isSending = false
+    @Published private(set) var isRestoring = false
+    @Published private(set) var isSyncing = false
+    @Published var lastError: LUMIError?
+    @Published var conversationID: String? {
+        didSet { UserDefaults.standard.set(conversationID, forKey: Self.conversationKey) }
+    }
+    /// 当前人格 key（由 AppSession 统一维护）
+    @Published var characterKey: String? = "erii"
+
+    private static let conversationKey = "lumi.conversation.id"
+    private static let cursorKey = "lumi.sync.cursor"
+    private static let proactiveSeenKey = "lumi.proactive.seen"
+
+    private let api: LUMIAPIClient
+    private let store: MessageStore
+
+    /// 连发消息时排队的待发送项（需求 07：不吞消息）。
+    private struct PendingMessage {
+        let id: UUID
+        let text: String
+    }
+    private var pendingQueue: [PendingMessage] = []
+
+    init(api: LUMIAPIClient, store: MessageStore = MessageStore(directory: MessageStore.defaultDirectory())) {
+        self.api = api
+        self.store = store
+        self.conversationID = UserDefaults.standard.string(forKey: Self.conversationKey)
+    }
+
+    // MARK: - 历史恢复
+
+    /// App 冷启动：先读本地快照（离线也能看），再按需从服务端补齐。
+    func restoreHistory() async {
+        isRestoring = true
+        defer { isRestoring = false }
+
+        do {
+            let local = try await store.load()
+            if !local.isEmpty {
+                messages = local.map { item in
+                    var recovered = item
+                    if recovered.status == .sending {
+                        recovered.status = .failed
+                        recovered.errorMessage = "发送中断，点击重试。"
+                    }
+                    return recovered
+                }
+                try await persist()
+            }
+        } catch {
+            lastError = .decodingFailure(String(describing: error))
+        }
+
+        // 本地为空但服务端可能已有记录（换机、Windows 端先聊过等场景）
+        if messages.isEmpty, let conversationID {
+            do {
+                let remote = try await api.messages(conversationID: conversationID)
+                messages = remote.map { $0.toChatMessage() }
+                try await persist()
+            } catch {
+                // 拉取失败不阻塞使用，本地没有就展示空白
+            }
+        }
+
+        if messages.isEmpty {
+            await insertGreeting()
+        }
+    }
+
+    private func insertGreeting() async {
+        do {
+            let persona = try await api.persona()
+            let greeting = ChatMessage(role: .assistant, content: persona.greeting)
+            messages = [greeting]
+            try await persist()
+        } catch {
+            // 拿不到 persona 就静默：不编造任何回复
+        }
+    }
+
+    // MARK: - 发送
+
+    func send(text: String, quoted: ChatMessage? = nil) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let userMessage = ChatMessage(
+            role: .user,
+            content: trimmed,
+            status: .sending,
+            requestID: ChatMessage.makeRequestID(),
+            quotedText: quoted.map { Self.quoteForContext($0) }
+        )
+        messages.append(userMessage)
+        Task { try? await persist() }
+        lastError = nil
+
+        // 需求 07：上一条还在生成时，新消息排队而不是丢弃。
+        if isSending {
+            pendingQueue.append(PendingMessage(id: userMessage.id, text: trimmed))
+            return
+        }
+
+        isSending = true
+        let messageID = userMessage.id
+        Task { [weak self] in
+            guard let self else { return }
+            await self.deliver(messageID: messageID, text: trimmed)
+        }
+    }
+
+    /// 发送图片。先把字节落到本地临时文件（气泡立刻能显示），再上传换 `media_id`。
+    func sendImage(data: Data, filename: String = "photo.jpg") {
+        guard !isSending, !data.isEmpty else { return }
+        let localPath = Self.persistLocalMedia(data: data, filename: filename)
+        let message = ChatMessage(
+            role: .user,
+            content: "",
+            status: .sending,
+            requestID: ChatMessage.makeRequestID(),
+            kind: .image,
+            localMediaPath: localPath
+        )
+        messages.append(message)
+        isSending = true
+        lastError = nil
+
+        Task { [weak self] in
+            guard let self else { return }
+            await self.uploadAndDeliver(
+                messageID: message.id,
+                data: data,
+                filename: filename,
+                mime: Self.mimeFor(filename: filename),
+                kind: .image,
+                durationMs: 0,
+                caption: ""
+            )
+        }
+    }
+
+    /// 发送语音。服务端没接 ASR 时会回一段标注为「未接入」的占位文本。
+    func sendVoice(fileURL: URL, duration: TimeInterval) {
+        guard !isSending else { return }
+        guard let data = try? Data(contentsOf: fileURL), !data.isEmpty else { return }
+        let durationMs = Int(duration * 1000)
+        let message = ChatMessage(
+            role: .user,
+            content: "",
+            status: .sending,
+            requestID: ChatMessage.makeRequestID(),
+            kind: .audio,
+            localMediaPath: fileURL.path,
+            durationMs: durationMs
+        )
+        messages.append(message)
+        isSending = true
+        lastError = nil
+
+        Task { [weak self] in
+            guard let self else { return }
+            await self.uploadAndDeliver(
+                messageID: message.id,
+                data: data,
+                filename: "voice.m4a",
+                mime: "audio/mp4",
+                kind: .audio,
+                durationMs: durationMs,
+                caption: ""
+            )
+        }
+    }
+
+    private func uploadAndDeliver(
+        messageID: UUID,
+        data: Data,
+        filename: String,
+        mime: String,
+        kind: MessageKind,
+        durationMs: Int,
+        caption: String
+    ) async {
+        do {
+            try await persist()
+            let asset = try await api.uploadMedia(
+                data: data,
+                filename: filename,
+                mime: mime,
+                kind: kind.rawValue,
+                durationMs: durationMs
+            )
+            if let index = messages.firstIndex(where: { $0.id == messageID }) {
+                messages[index].mediaID = asset.id
+                if kind == .audio && messages[index].durationMs == nil {
+                    messages[index].durationMs = asset.durationMs
+                }
+            }
+            await deliver(
+                messageID: messageID,
+                text: caption,
+                mediaID: asset.id,
+                kind: kind
+            )
+        } catch let error as LUMIError {
+            isSending = false
+            markFailed(messageID: messageID, error: error)
+            try? await persist()
+            flushPendingQueue()
+        } catch {
+            isSending = false
+            markFailed(messageID: messageID, error: .cannotConnectToServer)
+            try? await persist()
+            flushPendingQueue()
+        }
+    }
+
+    /// 对失败的消息点「重试」——沿用同一个幂等 ID，服务端不会重复生成回复。
+    func retry(messageID: UUID) {
+        guard !isSending else { return }
+        guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
+        guard messages[index].status == .failed else { return }
+        let text = messages[index].content
+        let requestID = messages[index].requestID ?? ChatMessage.makeRequestID()
+        let kind = messages[index].kind
+        let localPath = messages[index].localMediaPath
+        let mediaID = messages[index].mediaID
+        let durationMs = messages[index].durationMs ?? 0
+        messages[index].requestID = requestID
+        messages[index].status = .sending
+        messages[index].errorMessage = nil
+        isSending = true
+        lastError = nil
+
+        Task { [weak self] in
+            guard let self else { return }
+            // 语音/图片：本地文件还在就重新上传（上次可能停在半路）
+            if kind != .text, mediaID == nil, let localPath,
+               let data = try? Data(contentsOf: URL(fileURLWithPath: localPath)) {
+                let filename = (localPath as NSString).lastPathComponent
+                await self.uploadAndDeliver(
+                    messageID: messageID,
+                    data: data,
+                    filename: filename,
+                    mime: Self.mimeFor(filename: filename),
+                    kind: kind,
+                    durationMs: durationMs,
+                    caption: text
+                )
+                return
+            }
+            await self.deliver(
+                messageID: messageID,
+                text: text,
+                requestID: requestID,
+                mediaID: mediaID,
+                kind: kind
+            )
+        }
+    }
+
+    /// 处理排队中的下一条消息（需求 07：不吞消息，逐条按顺序发送）。
+    private func flushPendingQueue() {
+        guard !isSending, !pendingQueue.isEmpty else { return }
+        let next = pendingQueue.removeFirst()
+        isSending = true
+        Task { [weak self] in
+            guard let self else { return }
+            await self.deliver(messageID: next.id, text: next.text)
+        }
+    }
+
+    private func deliver(
+        messageID: UUID,
+        text: String,
+        requestID: String? = nil,
+        mediaID: String? = nil,
+        kind: MessageKind = .text
+    ) async {
+        defer {
+            isSending = false
+            flushPendingQueue()
+        }
+
+        // Persist a stable ID before the first network request, including a lost first response.
+        if conversationID == nil { conversationID = UUID().uuidString.lowercased() }
+        let resolvedRequestID = requestID
+            ?? messages.first(where: { $0.id == messageID })?.requestID
+            ?? ChatMessage.makeRequestID()
+        // 引用回复：把被引用消息的完整文本带上行，进入模型上下文；
+        // 落库正文仍是这条新消息本身，引用只作背景不混入新陈述。
+        let quotedText = messages.first(where: { $0.id == messageID })?.quotedText
+
+        do {
+            try await persist()
+            // 公网（Cloudflare Tunnel）下流式 SSE 会被缓冲，容易卡在「发送中」。
+            // 非流式稳定可靠（后端实测 4~5 秒返回），打字机效果等公网稳定后再加回。
+            let response = try await api.sendMessage(
+                text: text,
+                conversationID: conversationID,
+                requestID: resolvedRequestID,
+                characterKey: characterKey,
+                mediaID: mediaID,
+                kind: kind.rawValue,
+                quotedText: quotedText
+            )
+            conversationID = response.conversationId
+
+            if let index = messages.firstIndex(where: { $0.id == messageID }) {
+                messages[index].status = .sent
+                messages[index].requestID = resolvedRequestID
+                messages[index].convSeq = response.convSeq
+                messages[index].serverID = response.userMessageId
+            }
+
+            // 幂等重放：服务端没有再调模型，直接复用上次的助手消息。
+            if response.idempotentReplay,
+               let index = messages.firstIndex(where: { $0.serverID == response.assistantMessageId }) {
+                messages[index].errorMessage = nil
+                messages[index].status = .sent
+                try await persist()
+                return
+            }
+
+            let reply = ChatMessage(
+                role: .assistant,
+                content: response.reply,
+                model: response.isMock ? nil : response.model,
+                serverID: response.assistantMessageId,
+                convSeq: response.convSeq,
+                isMock: response.isMock
+            )
+            messages.append(reply)
+            try await persist()
+        } catch let error as LUMIError {
+            markFailed(messageID: messageID, error: error)
+            lastError = error
+            try? await persist()
+        } catch {
+            let wrapped = LUMIError.cannotConnectToServer
+            markFailed(messageID: messageID, error: wrapped)
+            lastError = wrapped
+            try? await persist()
+        }
+    }
+
+    private func markFailed(messageID: UUID, error: LUMIError) {
+        guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
+        messages[index].status = .failed
+        messages[index].errorMessage = error.userMessage
+    }
+
+    // MARK: - 跨设备同步
+
+    /// 增量拉取：只拿 `conv_seq > 已知游标` 的消息，并按游标去重。
+    func syncFromServer() async throws {
+        guard !isSending, !isSyncing, let conversationID else { return }
+        isSyncing = true
+        defer { isSyncing = false }
+
+        let known = Self.loadCursor()[conversationID] ?? 0
+        let remote = try await api.syncConversation(conversationID: conversationID, after: known)
+        guard !remote.isEmpty, !isSending, self.conversationID == conversationID else { return }
+
+        let knownIDs = Set(messages.compactMap(\.serverID))
+        var added: [ChatMessage] = []
+        var maxSeq = known
+
+        for item in remote {
+            if let seq = item.convSeq { maxSeq = max(maxSeq, seq) }
+            if item.isDeleted {
+                messages.removeAll { $0.serverID == item.id }
+                continue
+            }
+            guard !knownIDs.contains(item.id) else { continue }
+            if let requestID = item.requestId,
+               let index = messages.firstIndex(where: { $0.requestID == requestID }) {
+                let synced = item.toChatMessage()
+                messages[index].serverID = synced.serverID
+                messages[index].convSeq = synced.convSeq
+                messages[index].status = synced.status
+                continue
+            }
+            added.append(item.toChatMessage())
+        }
+
+        if !added.isEmpty {
+            messages.append(contentsOf: added)
+            messages.sort { lhs, rhs in
+                if lhs.createdAt == rhs.createdAt {
+                    return (lhs.convSeq ?? 0) < (rhs.convSeq ?? 0)
+                }
+                return lhs.createdAt < rhs.createdAt
+            }
+        }
+        Self.saveCursor(conversationID, seq: maxSeq)
+        try await persist()
+    }
+
+    /// 拉取服务端排好队的主动消息（App 未打开期间产生的）。
+    ///
+    /// 诚实说明：这不是 APNs 远程推送，App 必须自己联网来取。
+    func pullProactiveMessages() async {
+        do {
+            let pending = try await api.proactivePending(characterKey: characterKey)
+            guard !pending.isEmpty else { return }
+            var seen = Set(UserDefaults.standard.array(forKey: Self.proactiveSeenKey) as? [String] ?? [])
+
+            var appended = false
+            for item in pending where !seen.contains(item.id) {
+                messages.append(
+                    ChatMessage(
+                        role: .assistant,
+                        content: item.content,
+                        model: "proactive:\(item.reason)"
+                    )
+                )
+                seen.insert(item.id)
+                appended = true
+            }
+            if appended {
+                UserDefaults.standard.set(Array(seen), forKey: Self.proactiveSeenKey)
+                try await persist()
+            }
+            _ = try? await api.markProactiveDelivered(ids: Array(seen))
+        } catch {
+            // 主动消息拉取失败不影响主流程
+        }
+    }
+
+    /// 删除一条消息（仅本地移除；服务端软删除接口见 /sync/messages/{id}）
+    func delete(messageID: UUID) {
+        messages.removeAll { $0.id == messageID }
+        Task { try? await persist() }
+    }
+
+    /// 合成绘梨衣的文字回复为语音（TTS）。返回可播放音频数据。
+    func synthesizeSpeech(_ text: String) async throws -> Data {
+        try await api.synthesize(text: text)
+    }
+
+    /// 反馈纠正（需求 11）：记错了 / 太长 / 不像绘梨衣。
+    func sendFeedback(type: String, messageID: String?) async {
+        try? await api.sendFeedback(type: type, messageID: messageID)
+    }
+
+    /// 收藏 / 取消收藏一条消息，并同步到服务端。
+    func setStarred(messageID: UUID, starred: Bool) {
+        guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
+        messages[index].starred = starred
+        Task { try? await persist() }
+
+        // 同步到服务端（失败不打断本地状态）
+        guard let convID = conversationID,
+              let serverID = messages[index].serverID else { return }
+        Task {
+            try? await api.setMessageStarred(conversationID: convID, messageID: serverID, starred: starred)
+        }
+    }
+
+    static func quoteSnippet(_ message: ChatMessage) -> String {
+        switch message.kind {
+        case .text:
+            let text = message.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            return text.count > 60 ? String(text.prefix(60)) + "…" : text
+        case .image:
+            return "[图片]"
+        case .audio:
+            return "[语音] \(max(1, Int((Double(message.durationMs ?? 0) / 1000).rounded())))″"
+        }
+    }
+
+    /// 引用回复时发给模型的完整文本（区别于展示用的短摘要）。
+    /// 文本消息取全文，图片/语音用类型标签占位。
+    static func quoteForContext(_ message: ChatMessage) -> String {
+        switch message.kind {
+        case .text:
+            return message.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        case .image:
+            return "[图片]"
+        case .audio:
+            return "[语音]"
+        }
+    }
+
+    // MARK: - 本地数据
+
+    private static func loadCursor() -> [String: Int] {
+        (UserDefaults.standard.dictionary(forKey: Self.cursorKey) as? [String: Int]) ?? [:]
+    }
+
+    private static func saveCursor(_ conversationID: String, seq: Int) {
+        var map = loadCursor()
+        map[conversationID] = max(map[conversationID] ?? 0, seq)
+        UserDefaults.standard.set(map, forKey: Self.cursorKey)
+    }
+
+    private func persist() async throws {
+        try await store.save(messages)
+    }
+
+    func clearHistory() async {
+        guard !isSending else { return }
+        pendingQueue.removeAll()
+        messages = []
+        conversationID = nil
+        UserDefaults.standard.removeObject(forKey: Self.cursorKey)
+        try? await store.clear()
+        await insertGreeting()
+    }
+
+    // MARK: - 媒体辅助
+
+    /// 把图片字节写成临时文件，气泡可以在上传完成前就显示出来。
+    static func persistLocalMedia(data: Data, filename: String) -> String? {
+        let dir = mediaDirectory()
+        let ext = (filename as NSString).pathExtension.isEmpty ? "jpg" : (filename as NSString).pathExtension
+        let url = dir.appendingPathComponent("\(UUID().uuidString).\(ext)")
+        do {
+            try data.write(to: url, options: .atomic)
+            return url.path
+        } catch {
+            return nil
+        }
+    }
+
+    static func mediaDirectory() -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        let dir = base.appendingPathComponent("LUMI/media", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    static func mimeFor(filename: String) -> String {
+        switch (filename as NSString).pathExtension.lowercased() {
+        case "png": return "image/png"
+        case "gif": return "image/gif"
+        case "webp": return "image/webp"
+        case "heic": return "image/heic"
+        case "m4a": return "audio/mp4"
+        case "wav": return "audio/wav"
+        case "mp3": return "audio/mpeg"
+        default: return "image/jpeg"
+        }
+    }
+}

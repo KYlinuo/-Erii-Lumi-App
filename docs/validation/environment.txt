@@ -1,0 +1,13 @@
+Project LUMI 环境自检 (/workspace/scratch/176aec0b5c47/work-performance/Erii-2.1.0)
+------------------------------------------------------------
+[OK ] Python 3.12.14 (>= 3.11)
+[OK ] Git: git version 2.51.1
+[OK ] 项目目录: 齐全
+[OK ] .env.example 存在: /workspace/scratch/176aec0b5c47/work-performance/Erii-2.1.0/.env.example
+[WARN] .env 不存在，后端将使用默认值（无 API Key / 无 token）
+      复制: cp .env.example .env 并填入真实值
+[OK ] .env 已被 git 忽略（防止密钥入库）
+[OK ] 后端依赖: all present
+[SKIP] xcodebuild 不存在 —— iOS 构建请在 macOS 或 GitHub Actions macOS Runner 上执行
+------------------------------------------------------------
+结论: 基础工具就绪；iOS 编译与目标 SDK 请单独运行 ios_validate.sh 验证

@@ -1,0 +1,7 @@
+{
+  "name": "erii-ios-quality",
+  "frontmatter_valid": true,
+  "relative_references_exist": true,
+  "workbuddy_import_tested": false,
+  "scope": "Portable local skill; user imports into WorkBuddy or reads SKILL.md directly."
+}

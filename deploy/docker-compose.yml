@@ -1,0 +1,43 @@
+# 绘梨衣 AI 陪伴 —— 一键公网部署
+#
+# 用法：
+#   1. 在 deploy/Caddyfile 里把 your-domain.example.com 换成你的域名
+#   2. 在本文件同目录（deploy/）执行：
+#        cp ../.env.example .env
+#        # 编辑 .env，填入 DeepSeek API Key 与访问令牌
+#        docker compose up -d
+#
+# 之后 iPhone 设置里「服务器地址」填 https://你的域名 即可，走 5G/流量也能连。
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: erii-backend
+    env_file:
+      - .env
+    volumes:
+      - erii-data:/app/data
+      - erii-media:/app/media
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: erii-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - erii-caddy-data:/data
+      - erii-caddy-config:/config
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  erii-data:
+  erii-media:
+  erii-caddy-data:
+  erii-caddy-config:

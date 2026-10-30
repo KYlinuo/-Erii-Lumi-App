@@ -1,0 +1,63 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ---- Secrets (NEVER commit) ----
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.key
+*.mobileprovision
+secrets/
+credentials.json
+
+# ---- Database / runtime data ----
+backend/data/
+*.db
+*.sqlite
+*.sqlite3
+backend/*.log
+*.log
+
+# ---- iOS / Xcode ----
+frontend/build/
+frontend/DerivedData/
+frontend/*.xcworkspace/xcuserdata/
+frontend/*.xcodeproj/xcuserdata/
+frontend/*.xcodeproj/project.xcworkspace/
+*.ipa
+*.dSYM.zip
+*.xcarchive/
+xcuserdata/
+
+# ---- Node / misc ----
+node_modules/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# 夜间开发备份（含运行期聊天数据，不入库）
+.night-backup/
+
+# 运行期媒体文件与本地演示库（不入库）
+backend/data/media/
+backend/data/relay_demo.db*
+backend/data/*.db-shm
+backend/data/*.db-wal
+backend/.agent_relay/
+
+# 构建产物（本地导出，不入库）
+dist/

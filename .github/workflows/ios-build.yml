@@ -1,0 +1,162 @@
+# ============================================================
+# Project LUMI - iOS 构建流程（GitHub Actions / macOS Runner）
+#
+# 产物：
+#   1. LUMI-simulator.app.zip   模拟器版本
+#   2. LUMI-unsigned.ipa        真机未签名 IPA（供侧载工具处理）
+#   3. 测试报告
+#
+# 说明：
+#   - 工程由 project.yml（XcodeGen）生成，不需要提交 .xcodeproj；
+#   - 无签名条件下使用 CODE_SIGNING_ALLOWED=NO 产出未签名 IPA；
+#   - 构建失败时本 workflow 会以非零退出码结束，绝不伪造成功。
+# ============================================================
+
+name: iOS Build
+
+on:
+  push:
+    branches: [main, workbuddy-dev, "night/**"]
+    paths: ["frontend/**", ".github/workflows/ios-build.yml"]
+  pull_request:
+    paths: ["frontend/**", ".github/workflows/ios-build.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Test (macOS)
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+          xcrun simctl list runtimes | head -20
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Pick an available iPhone simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available | grep -E "iPhone" | head -1 | grep -oE "\(([A-F0-9-]{36})\)" | tr -d '()')
+          if [ -z "$UDID" ]; then
+            echo "::error::No available iPhone simulator found"
+            exit 1
+          fi
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "Using simulator UDID: $UDID"
+
+      - name: Run unit tests
+        run: |
+          mkdir -p build
+          set +e
+          set -o pipefail
+          xcodebuild test \
+            -project LUMI.xcodeproj \
+            -scheme LUMI \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build/test \
+            -resultBundlePath build/LUMITests.xcresult \
+            | tee build/test.log
+          status=${PIPESTATUS[0]}
+          passed=$(grep -c "Test Case .* passed" build/test.log || echo 0)
+          failed=$(grep -c "Test Case .* failed" build/test.log || echo 0)
+          echo "xcodebuild exit=$status  通过=$passed  失败=$failed"
+          # 只有 xcodebuild 本身失败才算失败；统计行不能污染步骤结果
+          exit $status
+
+      - name: Build simulator app
+        run: |
+          mkdir -p build
+          set -o pipefail
+          xcodebuild build \
+            -project LUMI.xcodeproj \
+            -scheme LUMI \
+            -configuration Debug \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build/sim \
+            | tee build/sim-build.log
+
+      - name: Package simulator artifact
+        run: |
+          APP="build/sim/Build/Products/Debug-iphonesimulator/LUMI.app"
+          test -d "$APP" || { echo "::error::simulator app not found"; exit 1; }
+          cd "$(dirname "$APP")"
+          zip -qry "$GITHUB_WORKSPACE/frontend/LUMI-simulator.app.zip" "$(basename "$APP")"
+
+      - name: Build device archive (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project LUMI.xcodeproj \
+            -scheme LUMI \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath build/LUMI.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            | tee build/device-archive.log
+
+      - name: Package unsigned IPA
+        run: |
+          APP="build/LUMI.xcarchive/Products/Applications/LUMI.app"
+          test -d "$APP" || { echo "::error::archived app not found"; exit 1; }
+          rm -rf build/Payload && mkdir -p build/Payload
+          cp -R "$APP" build/Payload/
+          cd build
+          zip -qry LUMI-unsigned.ipa Payload
+          cd ..
+          echo "IPA 大小: $(du -h build/LUMI-unsigned.ipa | cut -f1)"
+          echo "注意: 未签名 IPA 需通过侧载工具（AltStore/Sideloadly/TrollStore 等）安装。"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumitest-results
+          path: frontend/build/LUMITests.xcresult
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: LUMI-simulator-app
+          path: frontend/LUMI-simulator.app.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: LUMI-unsigned-ipa
+          path: frontend/build/LUMI-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            frontend/build/*.log
+          if-no-files-found: ignore
+          retention-days: 14

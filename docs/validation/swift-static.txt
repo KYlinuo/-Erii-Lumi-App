@@ -1,0 +1,10 @@
+swift files: 56
+declared types: 140
+
+提示（4 条，可能误报，需人工确认）：
+  [member] frontend/LUMI/Services/AppearanceStore.swift:73 AppIconChoice.default 未定义
+  [member] frontend/LUMI/Views/AppearanceSettingsView.swift:52 AppIconChoice.allCases 未定义
+  [member] frontend/LUMI/Views/AppearanceSettingsView.swift:89 BubbleTheme.allCases 未定义
+  [member] frontend/LUMI/Views/NotebookView.swift:48 Section.allCases 未定义
+
+未发现阻断问题
